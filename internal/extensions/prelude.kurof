@@ -1,0 +1,3 @@
+{{ define "now" }}{{ now }}{{ end }}
+{{ define "isAdmin" }}{{ if eq .session.role "admin" }}✔️{{ else }}❌{{ end }}{{ end }}
+{{ define "greetUser" }}Hello {{ .session.user }}!{{ end }}

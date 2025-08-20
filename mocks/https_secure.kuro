@@ -1,0 +1,558 @@
+protocol: https
+port: 8443
+meta:
+  name: "HTTPS Secure API"
+  description: "Secure HTTPS API with SSL/TLS, authentication, and security headers"
+
+context:
+  variables:
+    apiVersion: "v1"
+    serverName: "UseKuro Secure API"
+    securityLevel: "high"
+    users:
+      - id: 1
+        username: "admin"
+        email: "admin@usekuro.com"
+        role: "administrator"
+        api_key: "uk_live_1234567890abcdef"
+        permissions: ["read", "write", "delete", "admin"]
+      - id: 2
+        username: "developer"
+        email: "dev@usekuro.com"
+        role: "developer"
+        api_key: "uk_live_abcdef1234567890"
+        permissions: ["read", "write"]
+      - id: 3
+        username: "readonly"
+        email: "readonly@usekuro.com"
+        role: "viewer"
+        api_key: "uk_live_fedcba0987654321"
+        permissions: ["read"]
+    certificates:
+      - domain: "api.usekuro.com"
+        issuer: "Let's Encrypt"
+        expires: "2025-12-31T23:59:59Z"
+        fingerprint: "SHA256:a1b2c3d4e5f6789..."
+      - domain: "secure.usekuro.com"
+        issuer: "DigiCert"
+        expires: "2025-06-15T23:59:59Z"
+        fingerprint: "SHA256:9f8e7d6c5b4a321..."
+
+routes:
+  # Security and SSL Info
+  - path: /
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options: nosniff
+        X-Frame-Options: DENY
+        X-XSS-Protection: "1; mode=block"
+        Content-Security-Policy: "default-src 'self'"
+        X-API-Version: "{{ .context.apiVersion }}"
+      body: |
+        {
+          "message": "Welcome to {{ .context.serverName }}",
+          "version": "{{ .context.apiVersion }}",
+          "security": {
+            "level": "{{ .context.securityLevel }}",
+            "protocol": "HTTPS",
+            "port": 8443,
+            "features": [
+              "SSL/TLS encryption",
+              "Security headers",
+              "API key authentication",
+              "Rate limiting",
+              "CORS protection"
+            ]
+          },
+          "endpoints": {
+            "health": "/health",
+            "ssl_info": "/ssl-info",
+            "secure_data": "/api/{{ .context.apiVersion }}/secure-data",
+            "auth": "/api/{{ .context.apiVersion }}/auth",
+            "users": "/api/{{ .context.apiVersion }}/users"
+          },
+          "timestamp": "{{ now }}"
+        }
+
+  - path: /health
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options: nosniff
+        Cache-Control: "no-cache, no-store, must-revalidate"
+      body: |
+        {
+          "status": "healthy",
+          "uptime": "{{ now }}",
+          "security": {
+            "ssl_enabled": true,
+            "encryption": "TLS 1.3",
+            "cipher_suite": "TLS_AES_256_GCM_SHA384",
+            "certificate_valid": true
+          },
+          "checks": {
+            "database": "encrypted_connection",
+            "cache": "secure_operational",
+            "external_apis": "verified_ssl"
+          }
+        }
+
+  # SSL Certificate Information
+  - path: /ssl-info
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options: nosniff
+      body: |
+        {
+          "ssl_info": {
+            "protocol": "TLS 1.3",
+            "cipher_suite": "TLS_AES_256_GCM_SHA384",
+            "key_exchange": "X25519",
+            "certificate_chain": [
+              {{ range $i, $cert := .context.certificates }}
+              {
+                "domain": "{{ $cert.domain }}",
+                "issuer": "{{ $cert.issuer }}",
+                "expires": "{{ $cert.expires }}",
+                "fingerprint": "{{ $cert.fingerprint }}",
+                "status": "valid"
+              }{{ if not (eq $i (sub (len $.context.certificates) 1)) }},{{ end }}
+              {{ end }}
+            ],
+            "hsts_enabled": true,
+            "hsts_max_age": 31536000,
+            "perfect_forward_secrecy": true
+          },
+          "security_score": "A+",
+          "generated_at": "{{ now }}"
+        }
+
+  # Secure Authentication
+  - path: /api/{{ .context.apiVersion }}/auth/login
+    method: POST
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options: nosniff
+        Set-Cookie: "secure_session={{ uuid }}; HttpOnly; Secure; SameSite=Strict; Path=/"
+      body: |
+        {
+          "success": true,
+          "token": "{{ uuid }}",
+          "refresh_token": "{{ uuid }}",
+          "expires_in": 3600,
+          "token_type": "Bearer",
+          "scope": "read write",
+          "user": {
+            "id": 1,
+            "username": "{{ .input.username }}",
+            "role": "administrator",
+            "permissions": ["read", "write", "delete", "admin"]
+          },
+          "security": {
+            "mfa_required": false,
+            "session_timeout": 3600,
+            "last_login": "{{ now }}",
+            "login_source": "api"
+          },
+          "issued_at": "{{ now }}"
+        }
+
+  # API Key Authentication
+  - path: /api/{{ .context.apiVersion }}/auth/validate
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options: nosniff
+      body: |
+        {{ $apiKey := .input.api_key }}
+        {{ $found := false }}
+        {{ range .context.users }}
+          {{ if eq .api_key $apiKey }}
+            {{ $found = true }}
+        {
+          "valid": true,
+          "user": {
+            "id": {{ .id }},
+            "username": "{{ .username }}",
+            "role": "{{ .role }}",
+            "permissions": {{ toJson .permissions }}
+          },
+          "api_key": {
+            "type": "production",
+            "created_at": "2024-01-01T00:00:00Z",
+            "last_used": "{{ now }}",
+            "rate_limit": {
+              "requests_per_minute": 100,
+              "requests_per_hour": 5000
+            }
+          },
+          "validated_at": "{{ now }}"
+        }
+          {{ end }}
+        {{ end }}
+        {{ if not $found }}
+        {
+          "valid": false,
+          "error": "Invalid API key",
+          "code": "INVALID_API_KEY"
+        }
+        {{ end }}
+
+  # Secure Data Endpoint
+  - path: /api/{{ .context.apiVersion }}/secure-data
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options: nosniff
+        X-Frame-Options: DENY
+        Cache-Control: "private, no-cache, no-store, must-revalidate"
+      body: |
+        {
+          "data": {
+            "sensitive_info": "This is encrypted and secure data",
+            "encryption": {
+              "algorithm": "AES-256-GCM",
+              "key_rotation": "daily",
+              "iv": "{{ uuid }}"
+            },
+            "access_log": {
+              "user_id": 1,
+              "timestamp": "{{ now }}",
+              "ip_address": "{{ default .input.ip "127.0.0.1" }}",
+              "user_agent": "{{ default .input.user_agent "Unknown" }}"
+            }
+          },
+          "security": {
+            "classification": "confidential",
+            "access_level": "authenticated_users_only",
+            "audit_trail": true
+          }
+        }
+
+  # User Management with Security
+  - path: /api/{{ .context.apiVersion }}/users
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options: nosniff
+        Cache-Control: "private, max-age=300"
+      body: |
+        {
+          "users": [
+            {{ range $i, $user := .context.users }}
+            {
+              "id": {{ $user.id }},
+              "username": "{{ $user.username }}",
+              "email": "{{ $user.email }}",
+              "role": "{{ $user.role }}",
+              "permissions": {{ toJson $user.permissions }},
+              "security": {
+                "mfa_enabled": {{ if eq $user.role "administrator" }}true{{ else }}false{{ end }},
+                "last_password_change": "2024-01-01T00:00:00Z",
+                "failed_login_attempts": 0,
+                "account_locked": false
+              },
+              "api_access": {
+                "has_api_key": true,
+                "api_key_masked": "{{ slice $user.api_key 0 8 }}...{{ slice $user.api_key -4 }}",
+                "rate_limit_tier": "{{ if eq $user.role "administrator" }}premium{{ else }}standard{{ end }}"
+              }
+            }{{ if not (eq $i (sub (len $.context.users) 1)) }},{{ end }}
+            {{ end }}
+          ],
+          "security_info": {
+            "total_users": {{ len .context.users }},
+            "admin_users": {{ len (where .context.users "role" "administrator") }},
+            "mfa_enabled_count": 1,
+            "password_policy": {
+              "min_length": 12,
+              "require_uppercase": true,
+              "require_lowercase": true,
+              "require_numbers": true,
+              "require_symbols": true,
+              "password_history": 5
+            }
+          }
+        }
+
+  # Secure File Upload
+  - path: /api/{{ .context.apiVersion }}/upload/secure
+    method: POST
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options: nosniff
+      body: |
+        {
+          "success": true,
+          "file": {
+            "id": "{{ uuid }}",
+            "filename": "{{ default .input.filename "secure_file.pdf" }}",
+            "size": {{ add (mod (unix now) 10000) 1000 }},
+            "type": "{{ default .input.type "application/pdf" }}",
+            "encrypted": true,
+            "encryption": {
+              "algorithm": "AES-256-GCM",
+              "key_id": "{{ uuid }}",
+              "checksum": "sha256:{{ uuid }}"
+            },
+            "security": {
+              "virus_scan": "clean",
+              "content_filter": "approved",
+              "access_control": "private"
+            },
+            "url": "https://secure-cdn.usekuro.com/files/{{ uuid }}/{{ default .input.filename "secure_file.pdf" }}",
+            "uploaded_at": "{{ now }}",
+            "expires_at": "{{ now }}"
+          }
+        }
+
+  # Security Audit Log
+  - path: /api/{{ .context.apiVersion }}/audit/security
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options: nosniff
+        Cache-Control: "private, no-cache, no-store"
+      body: |
+        {
+          "audit_log": [
+            {
+              "id": "{{ uuid }}",
+              "event": "user_login",
+              "user_id": 1,
+              "timestamp": "{{ now }}",
+              "ip_address": "192.168.1.100",
+              "user_agent": "Mozilla/5.0...",
+              "security_level": "high",
+              "result": "success"
+            },
+            {
+              "id": "{{ uuid }}",
+              "event": "api_key_used",
+              "user_id": 2,
+              "timestamp": "{{ now }}",
+              "ip_address": "10.0.0.50",
+              "endpoint": "/api/v1/secure-data",
+              "security_level": "high",
+              "result": "success"
+            },
+            {
+              "id": "{{ uuid }}",
+              "event": "failed_authentication",
+              "user_id": null,
+              "timestamp": "{{ now }}",
+              "ip_address": "203.0.113.45",
+              "reason": "invalid_api_key",
+              "security_level": "alert",
+              "result": "blocked"
+            }
+          ],
+          "summary": {
+            "total_events": 3,
+            "security_alerts": 1,
+            "successful_authentications": 2,
+            "failed_attempts": 1
+          },
+          "generated_at": "{{ now }}"
+        }
+
+  # Rate Limiting Info
+  - path: /api/{{ .context.apiVersion }}/rate-limit
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options: nosniff
+        X-RateLimit-Limit: "100"
+        X-RateLimit-Remaining: "95"
+        X-RateLimit-Reset: "{{ add (unix now) 3600 }}"
+      body: |
+        {
+          "rate_limit": {
+            "requests_per_minute": 100,
+            "requests_per_hour": 5000,
+            "requests_per_day": 100000,
+            "current_usage": {
+              "minute": 5,
+              "hour": 245,
+              "day": 12450
+            },
+            "remaining": {
+              "minute": 95,
+              "hour": 4755,
+              "day": 87550
+            },
+            "reset_times": {
+              "minute": "{{ add (unix now) 60 }}",
+              "hour": "{{ add (unix now) 3600 }}",
+              "day": "{{ add (unix now) 86400 }}"
+            }
+          },
+          "tier": "premium",
+          "upgrade_available": false
+        }
+
+  # Security Policy
+  - path: /api/{{ .context.apiVersion }}/security/policy
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options: nosniff
+      body: |
+        {
+          "security_policy": {
+            "tls": {
+              "minimum_version": "1.2",
+              "preferred_version": "1.3",
+              "cipher_suites": [
+                "TLS_AES_256_GCM_SHA384",
+                "TLS_CHACHA20_POLY1305_SHA256",
+                "TLS_AES_128_GCM_SHA256"
+              ],
+              "hsts_enabled": true,
+              "hsts_max_age": 31536000
+            },
+            "authentication": {
+              "methods": ["api_key", "bearer_token", "mutual_tls"],
+              "mfa_required_for_admin": true,
+              "session_timeout": 3600,
+              "password_policy": {
+                "min_length": 12,
+                "complexity_required": true,
+                "history_count": 5,
+                "expiry_days": 90
+              }
+            },
+            "authorization": {
+              "rbac_enabled": true,
+              "principle_of_least_privilege": true,
+              "regular_access_review": true
+            },
+            "data_protection": {
+              "encryption_at_rest": "AES-256",
+              "encryption_in_transit": "TLS 1.3",
+              "key_rotation_frequency": "monthly",
+              "data_classification": true
+            },
+            "monitoring": {
+              "audit_logging": true,
+              "anomaly_detection": true,
+              "intrusion_detection": true,
+              "security_alerts": true
+            }
+          },
+          "compliance": [
+            "SOC 2 Type II",
+            "ISO 27001",
+            "PCI DSS",
+            "GDPR",
+            "HIPAA"
+          ],
+          "last_updated": "{{ now }}"
+        }
+
+  # Security Error Responses
+  - path: /api/{{ .context.apiVersion }}/error/401
+    method: GET
+    response:
+      status: 401
+      headers:
+        Content-Type: application/json
+        Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+        WWW-Authenticate: "Bearer realm=\"Secure API\""
+        X-Content-Type-Options: nosniff
+      body: |
+        {
+          "error": "Unauthorized",
+          "code": "AUTHENTICATION_REQUIRED",
+          "message": "Valid authentication credentials required for secure access",
+          "security": {
+            "https_required": true,
+            "valid_api_key_required": true,
+            "rate_limit_applies": true
+          },
+          "timestamp": "{{ now }}"
+        }
+
+  - path: /api/{{ .context.apiVersion }}/error/403
+    method: GET
+    response:
+      status: 403
+      headers:
+        Content-Type: application/json
+        Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options: nosniff
+      body: |
+        {
+          "error": "Forbidden",
+          "code": "INSUFFICIENT_PERMISSIONS",
+          "message": "Your security clearance level is insufficient for this resource",
+          "required_permissions": ["admin", "security_read"],
+          "your_permissions": ["read", "write"],
+          "security_level": "high",
+          "timestamp": "{{ now }}"
+        }
+
+  # Catch-all with security headers
+  - path: /.*
+    method: GET
+    response:
+      status: 404
+      headers:
+        Content-Type: application/json
+        Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options: nosniff
+        X-Frame-Options: DENY
+      body: |
+        {
+          "error": "Not Found",
+          "code": "SECURE_ENDPOINT_NOT_FOUND",
+          "message": "The requested secure endpoint was not found",
+          "security": {
+            "request_logged": true,
+            "source_ip_recorded": true,
+            "rate_limit_applied": true
+          },
+          "available_endpoints": [
+            "/api/{{ .context.apiVersion }}/auth",
+            "/api/{{ .context.apiVersion }}/secure-data",
+            "/api/{{ .context.apiVersion }}/users",
+            "/ssl-info",
+            "/health"
+          ],
+          "timestamp": "{{ now }}"
+        }

@@ -1,0 +1,25 @@
+protocol: http
+port: 7070
+meta:
+  name: "Demo API"
+  description: "Mock simple de saludo con template importado"
+
+import:
+  - ./mocks/functions/time.kurof
+
+functions:
+  saludo: |
+    {{ define "saludo" }}Hola {{ .input.nombre }} desde {{ now }}{{ end }}
+
+context:
+  variables:
+    env: "dev"
+
+routes:
+  - path: /hello
+    method: POST
+    response:
+      status: 200
+      headers:
+        X-Mock: "UseKuro"
+      body: "{{ template \"saludo\" .input }}"

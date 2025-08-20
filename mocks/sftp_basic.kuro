@@ -1,0 +1,13 @@
+protocol: sftp
+port: 2222
+meta:
+  name: "SFTP Básico"
+  description: "Servidor de archivos simulado"
+
+files:
+  - path: "/home/user/readme.txt"
+    content: "Bienvenido a UseKuro SFTP!"
+  - path: "/etc/config.yaml"
+    content: |
+      port: 9090
+      enabled: true

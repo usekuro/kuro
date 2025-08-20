@@ -1,0 +1,14 @@
+protocol: tcp
+port: 9090
+meta:
+  name: "Echo TCP"
+  description: "Responde a comandos simples por texto"
+
+onMessage:
+  match: "(?P<cmd>\\w+):(?P<data>.+)"
+  conditions:
+    - if: '{{ eq .cmd "PING" }}'
+      respond: "PONG {{ .data }}"
+    - if: '{{ eq .cmd "HELLO" }}'
+      respond: "Hello {{ .data }}"
+  else: "Unknown command"

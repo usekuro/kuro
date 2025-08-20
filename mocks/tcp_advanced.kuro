@@ -1,0 +1,590 @@
+protocol: tcp
+port: 9091
+meta:
+  name: "Advanced TCP Server"
+  description: "Comprehensive TCP server with multi-client support, commands, and real-time features"
+
+session:
+  timeout: 300s
+
+context:
+  variables:
+    serverName: "UseKuro Advanced TCP"
+    version: "2.0.0"
+    maxClients: 1000
+    features:
+      - "Multi-client support"
+      - "Command processing"
+      - "Real-time chat"
+      - "File transfer simulation"
+      - "Game server protocols"
+      - "Custom binary protocols"
+    rooms:
+      - id: 1
+        name: "general"
+        topic: "General discussion"
+        users: ["alice", "bob", "charlie"]
+      - id: 2
+        name: "development"
+        topic: "Development discussions"
+        users: ["dev1", "dev2"]
+      - id: 3
+        name: "gaming"
+        topic: "Gaming and tournaments"
+        users: ["gamer1", "gamer2", "gamer3"]
+    users:
+      - username: "alice"
+        id: 1001
+        role: "moderator"
+        status: "online"
+        joined: "2024-01-01T10:00:00Z"
+      - username: "bob"
+        id: 1002
+        role: "user"
+        status: "online"
+        joined: "2024-01-15T14:30:00Z"
+      - username: "charlie"
+        id: 1003
+        role: "user"
+        status: "away"
+        joined: "2024-02-01T09:15:00Z"
+    commands:
+      - name: "HELP"
+        description: "Show available commands"
+        usage: "HELP [command]"
+        permission: "user"
+      - name: "JOIN"
+        description: "Join a chat room"
+        usage: "JOIN <room_name>"
+        permission: "user"
+      - name: "LEAVE"
+        description: "Leave current room"
+        usage: "LEAVE"
+        permission: "user"
+      - name: "LIST"
+        description: "List available rooms"
+        usage: "LIST [rooms|users|commands]"
+        permission: "user"
+      - name: "MSG"
+        description: "Send private message"
+        usage: "MSG <username> <message>"
+        permission: "user"
+      - name: "BROADCAST"
+        description: "Send message to all users"
+        usage: "BROADCAST <message>"
+        permission: "moderator"
+      - name: "KICK"
+        description: "Kick user from server"
+        usage: "KICK <username> [reason]"
+        permission: "moderator"
+      - name: "FILE"
+        description: "File transfer simulation"
+        usage: "FILE <upload|download> <filename>"
+        permission: "user"
+      - name: "GAME"
+        description: "Start game session"
+        usage: "GAME <start|join|stop> [game_type]"
+        permission: "user"
+      - name: "STATS"
+        description: "Server statistics"
+        usage: "STATS [server|user|room]"
+        permission: "user"
+    games:
+      - name: "tic-tac-toe"
+        max_players: 2
+        status: "available"
+      - name: "chess"
+        max_players: 2
+        status: "available"
+      - name: "poker"
+        max_players: 8
+        status: "available"
+
+onMessage:
+  match: "(?P<cmd>\\w+)(?:\\s+(?P<args>.*))?\\s*"
+  conditions:
+    # Welcome message on connection
+    - if: '{{ eq .cmd "CONNECT" }}'
+      respond: |
+        ╔══════════════════════════════════════════════════════════════╗
+        ║                 {{ .context.serverName }} v{{ .context.version }}                ║
+        ╠══════════════════════════════════════════════════════════════╣
+        ║ Welcome to the advanced TCP server!                         ║
+        ║ Type HELP for available commands                             ║
+        ║ Max clients: {{ .context.maxClients }}                                        ║
+        ║ Server time: {{ now }}                            ║
+        ╚══════════════════════════════════════════════════════════════╝
+
+        🎯 Quick start:
+        • JOIN general - Join the general chat room
+        • LIST rooms - See available rooms
+        • MSG <user> <text> - Send private message
+        • HELP <command> - Get detailed help
+
+        Connected as: Guest_{{ uuid | slice 0 8 }}
+
+    # Help system
+    - if: '{{ eq .cmd "HELP" }}'
+      respond: |
+        📚 {{ .context.serverName }} Command Reference
+        ═══════════════════════════════════════════════════════════
+
+        {{ if .args }}
+        {{ $helpCmd := .args }}
+        {{ range .context.commands }}
+          {{ if eq (upper .name) (upper $helpCmd) }}
+        📖 {{ .name }} - {{ .description }}
+        Usage: {{ .usage }}
+        Permission: {{ .permission }}
+
+        Examples:
+          {{ if eq .name "JOIN" }}
+          JOIN general     - Join general room
+          JOIN development - Join development room
+          {{ else if eq .name "MSG" }}
+          MSG alice Hello! - Send "Hello!" to alice
+          MSG bob How are you? - Private message to bob
+          {{ else if eq .name "FILE" }}
+          FILE upload document.pdf - Upload file
+          FILE download image.jpg - Download file
+          {{ else if eq .name "GAME" }}
+          GAME start tic-tac-toe - Start tic-tac-toe
+          GAME join poker - Join poker game
+          {{ else }}
+          {{ .usage }}
+          {{ end }}
+          {{ end }}
+        {{ end }}
+        {{ else }}
+        Available commands:
+        {{ range .context.commands }}
+        • {{ printf "%-12s" .name }} - {{ .description }}
+        {{ end }}
+
+        💡 Use HELP <command> for detailed information
+        🏠 Rooms: {{ len .context.rooms }} available
+        👥 Users: {{ len .context.users }} online
+        🎮 Games: {{ len .context.games }} available
+        {{ end }}
+
+    # Room management
+    - if: '{{ eq .cmd "JOIN" }}'
+      respond: |
+        {{ $roomName := .args }}
+        {{ if $roomName }}
+        {{ $found := false }}
+        {{ range .context.rooms }}
+          {{ if eq (lower .name) (lower $roomName) }}
+            {{ $found = true }}
+        🚪 Joined room: #{{ .name }}
+        📝 Topic: {{ .topic }}
+        👥 Users in room: {{ join .users ", " }}
+
+        💬 Welcome to #{{ .name }}! Start chatting by typing your message.
+        🔧 Room commands: /leave, /topic, /users
+          {{ end }}
+        {{ end }}
+        {{ if not $found }}
+        ❌ Room "{{ $roomName }}" not found!
+
+        Available rooms:
+        {{ range .context.rooms }}
+        • #{{ .name }} - {{ .topic }} ({{ len .users }} users)
+        {{ end }}
+
+        💡 Use: JOIN <room_name>
+        {{ end }}
+        {{ else }}
+        ❌ Please specify a room name
+        Usage: JOIN <room_name>
+
+        Available rooms:
+        {{ range .context.rooms }}
+        • #{{ .name }} - {{ .topic }}
+        {{ end }}
+        {{ end }}
+
+    # List command
+    - if: '{{ eq .cmd "LIST" }}'
+      respond: |
+        {{ $listType := default .args "rooms" }}
+        {{ if eq (lower $listType) "rooms" }}
+        🏠 Available Rooms ({{ len .context.rooms }})
+        ═══════════════════════════════════════════
+        {{ range $i, $room := .context.rooms }}
+        {{ add $i 1 }}. #{{ $room.name }}
+           📝 {{ $room.topic }}
+           👥 {{ len $room.users }} users: {{ join $room.users ", " }}
+           🆔 Room ID: {{ $room.id }}
+        {{ end }}
+
+        💡 Use: JOIN <room_name> to join a room
+
+        {{ else if eq (lower $listType) "users" }}
+        👥 Online Users ({{ len .context.users }})
+        ═══════════════════════════════════════════
+        {{ range $i, $user := .context.users }}
+        {{ add $i 1 }}. {{ $user.username }}
+           🎭 Role: {{ $user.role }}
+           📊 Status: {{ $user.status }}
+           📅 Joined: {{ $user.joined }}
+           🆔 ID: {{ $user.id }}
+        {{ end }}
+
+        💡 Use: MSG <username> <message> for private chat
+
+        {{ else if eq (lower $listType) "commands" }}
+        🔧 Available Commands ({{ len .context.commands }})
+        ═══════════════════════════════════════════
+        {{ range $i, $cmd := .context.commands }}
+        {{ add $i 1 }}. {{ $cmd.name }}
+           📖 {{ $cmd.description }}
+           💻 {{ $cmd.usage }}
+           🔐 Permission: {{ $cmd.permission }}
+        {{ end }}
+
+        💡 Use: HELP <command> for detailed help
+
+        {{ else if eq (lower $listType) "games" }}
+        🎮 Available Games ({{ len .context.games }})
+        ═══════════════════════════════════════════
+        {{ range $i, $game := .context.games }}
+        {{ add $i 1 }}. {{ $game.name }}
+           👥 Max players: {{ $game.max_players }}
+           📊 Status: {{ $game.status }}
+        {{ end }}
+
+        💡 Use: GAME start <game_name> to start playing
+
+        {{ else }}
+        ❌ Invalid list type: {{ $listType }}
+
+        Available list types:
+        • LIST rooms - Show all rooms
+        • LIST users - Show online users
+        • LIST commands - Show all commands
+        • LIST games - Show available games
+        {{ end }}
+
+    # Private messaging
+    - if: '{{ eq .cmd "MSG" }}'
+      respond: |
+        {{ $parts := split .args " " }}
+        {{ if ge (len $parts) 2 }}
+        {{ $user := index $parts 0 }}
+        {{ $message := join (slice $parts 1) " " }}
+        {{ $found := false }}
+        {{ range .context.users }}
+          {{ if eq (lower .username) (lower $user) }}
+            {{ $found = true }}
+        📨 Private message sent to {{ .username }}
+        💬 Message: "{{ $message }}"
+        📅 Sent at: {{ now }}
+
+        {{ if eq .status "away" }}
+        ⚠️  Note: {{ .username }} is currently away
+        {{ else if eq .status "offline" }}
+        ⚠️  Note: {{ .username }} is offline (message queued)
+        {{ else }}
+        ✅ {{ .username }} is online
+        {{ end }}
+          {{ end }}
+        {{ end }}
+        {{ if not $found }}
+        ❌ User "{{ $user }}" not found!
+
+        Online users:
+        {{ range .context.users }}
+        • {{ .username }} ({{ .status }})
+        {{ end }}
+        {{ end }}
+        {{ else }}
+        ❌ Invalid message format
+        Usage: MSG <username> <message>
+
+        Example: MSG alice Hello, how are you?
+        {{ end }}
+
+    # File transfer simulation
+    - if: '{{ eq .cmd "FILE" }}'
+      respond: |
+        {{ $parts := split .args " " }}
+        {{ if ge (len $parts) 2 }}
+        {{ $action := index $parts 0 }}
+        {{ $filename := index $parts 1 }}
+
+        {{ if eq (lower $action) "upload" }}
+        📤 File Upload Initiated
+        ═══════════════════════════════════════════
+        📁 Filename: {{ $filename }}
+        📊 Size: {{ add (mod (unix now) 10000) 1000 }} bytes
+        🔐 Encryption: AES-256
+        🏷️  ID: {{ uuid }}
+        📅 Started: {{ now }}
+
+        Upload progress:
+        ████████████████████████████████████ 100%
+
+        ✅ Upload completed successfully!
+        🔗 File URL: /files/{{ uuid }}/{{ $filename }}
+
+        {{ else if eq (lower $action) "download" }}
+        📥 File Download Initiated
+        ═══════════════════════════════════════════
+        📁 Filename: {{ $filename }}
+        📊 Size: {{ add (mod (unix now) 5000) 2000 }} bytes
+        🔐 Verification: SHA-256 checksum verified
+        📅 Started: {{ now }}
+
+        Download progress:
+        ████████████████████████████████████ 100%
+
+        ✅ Download completed successfully!
+        💾 Saved to: /downloads/{{ $filename }}
+
+        {{ else }}
+        ❌ Invalid file action: {{ $action }}
+        Available actions: upload, download
+        {{ end }}
+        {{ else }}
+        ❌ Invalid file command format
+        Usage: FILE <upload|download> <filename>
+
+        Examples:
+        • FILE upload document.pdf
+        • FILE download image.jpg
+        {{ end }}
+
+    # Game system
+    - if: '{{ eq .cmd "GAME" }}'
+      respond: |
+        {{ $parts := split .args " " }}
+        {{ if ge (len $parts) 1 }}
+        {{ $action := index $parts 0 }}
+
+        {{ if eq (lower $action) "start" }}
+        {{ if ge (len $parts) 2 }}
+        {{ $gameName := index $parts 1 }}
+        {{ $found := false }}
+        {{ range .context.games }}
+          {{ if eq (lower .name) (lower $gameName) }}
+            {{ $found = true }}
+        🎮 Starting {{ .name }} game...
+        ═══════════════════════════════════════════
+        👥 Max players: {{ .max_players }}
+        📊 Status: {{ .status }}
+        🆔 Game ID: {{ uuid }}
+        📅 Started: {{ now }}
+
+        🎯 Waiting for players to join...
+        💡 Other players can join with: GAME join {{ .name }}
+
+        {{ if eq .name "tic-tac-toe" }}
+        🎲 Tic-Tac-Toe Board:
+           |   |
+        -----------
+           |   |
+        -----------
+           |   |
+
+        You are X, waiting for O player...
+        {{ else if eq .name "chess" }}
+        ♟️  Chess game initialized
+        🏁 You are playing as White
+        💭 Waiting for Black player...
+        {{ else if eq .name "poker" }}
+        🃏 Poker table created
+        💰 Buy-in: $1000
+        🎯 Waiting for {{ sub .max_players 1 }} more players...
+        {{ end }}
+          {{ end }}
+        {{ end }}
+        {{ if not $found }}
+        ❌ Game "{{ $gameName }}" not found!
+
+        Available games:
+        {{ range .context.games }}
+        • {{ .name }} ({{ .max_players }} players)
+        {{ end }}
+        {{ end }}
+        {{ else }}
+        ❌ Please specify a game name
+        Usage: GAME start <game_name>
+        {{ end }}
+
+        {{ else if eq (lower $action) "join" }}
+        {{ if ge (len $parts) 2 }}
+        {{ $gameName := index $parts 1 }}
+        🎮 Joining {{ $gameName }} game...
+        ═══════════════════════════════════════════
+        🆔 Game ID: {{ uuid }}
+        👤 Player: Guest_{{ uuid | slice 0 8 }}
+        📅 Joined: {{ now }}
+
+        ✅ Successfully joined the game!
+        🎯 Game will start when all players are ready.
+        {{ else }}
+        ❌ Please specify a game name
+        Usage: GAME join <game_name>
+        {{ end }}
+
+        {{ else if eq (lower $action) "stop" }}
+        🛑 Stopping current game...
+        📊 Game statistics will be saved
+        📅 Stopped: {{ now }}
+
+        ✅ Game stopped successfully!
+        💡 Thanks for playing!
+
+        {{ else if eq (lower $action) "list" }}
+        🎮 Available Games
+        ═══════════════════════════════════════════
+        {{ range $i, $game := .context.games }}
+        {{ add $i 1 }}. {{ $game.name }}
+           👥 Players: {{ $game.max_players }}
+           📊 Status: {{ $game.status }}
+        {{ end }}
+
+        💡 Use: GAME start <game_name>
+
+        {{ else }}
+        ❌ Invalid game action: {{ $action }}
+        Available actions: start, join, stop, list
+        {{ end }}
+        {{ else }}
+        ❌ Invalid game command format
+        Usage: GAME <start|join|stop|list> [game_name]
+
+        Examples:
+        • GAME list
+        • GAME start tic-tac-toe
+        • GAME join poker
+        {{ end }}
+
+    # Server statistics
+    - if: '{{ eq .cmd "STATS" }}'
+      respond: |
+        {{ $statsType := default .args "server" }}
+
+        {{ if eq (lower $statsType) "server" }}
+        📊 Server Statistics
+        ═══════════════════════════════════════════
+        🖥️  Server: {{ .context.serverName }} v{{ .context.version }}
+        📅 Current time: {{ now }}
+        ⏰ Uptime: {{ add (mod (unix now) 24) 1 }}h {{ mod (unix now) 60 }}m
+
+        👥 Users:
+        • Total registered: {{ len .context.users }}
+        • Currently online: {{ len (where .context.users "status" "online") }}
+        • Away: {{ len (where .context.users "status" "away") }}
+
+        🏠 Rooms:
+        • Total rooms: {{ len .context.rooms }}
+        • Active conversations: {{ mod (unix now) 5 }}
+
+        🎮 Games:
+        • Available games: {{ len .context.games }}
+        • Active sessions: {{ mod (unix now) 3 }}
+
+        💻 System:
+        • Max clients: {{ .context.maxClients }}
+        • Memory usage: {{ add (mod (unix now) 50) 25 }}%
+        • CPU usage: {{ add (mod (unix now) 30) 10 }}%
+
+        {{ else if eq (lower $statsType) "user" }}
+        👤 Your User Statistics
+        ═══════════════════════════════════════════
+        🆔 User ID: Guest_{{ uuid | slice 0 8 }}
+        📅 Connected: {{ now }}
+        💬 Messages sent: {{ mod (unix now) 50 }}
+        🏠 Rooms visited: {{ mod (unix now) 5 }}
+        🎮 Games played: {{ mod (unix now) 3 }}
+        ⏱️  Session time: {{ mod (unix now) 120 }} minutes
+
+        🏆 Achievements:
+        • First connection ✅
+        • Sent first message ✅
+        • Joined a room ✅
+        {{ if gt (mod (unix now) 10) 5 }}
+        • Active participant ✅
+        {{ end }}
+
+        {{ else if eq (lower $statsType) "room" }}
+        🏠 Room Statistics
+        ═══════════════════════════════════════════
+        {{ range $i, $room := .context.rooms }}
+        📍 #{{ $room.name }}
+        • Topic: {{ $room.topic }}
+        • Users: {{ len $room.users }}
+        • Activity: {{ if gt (mod (add (unix now) $i) 10) 5 }}High{{ else }}Normal{{ end }}
+        • Messages today: {{ add (mod (unix now) 100) $i }}
+
+        {{ end }}
+
+        {{ else }}
+        ❌ Invalid stats type: {{ $statsType }}
+        Available types: server, user, room
+        {{ end }}
+
+    # Server information
+    - if: '{{ eq .cmd "INFO" }}'
+      respond: |
+        ℹ️  {{ .context.serverName }} Information
+        ═══════════════════════════════════════════
+        📋 Version: {{ .context.version }}
+        🌐 Protocol: TCP
+        🔌 Port: 9091
+        📅 Server time: {{ now }}
+
+        🚀 Features:
+        {{ range .context.features }}
+        • {{ . }}
+        {{ end }}
+
+        📞 Support:
+        • Documentation: /docs
+        • Issues: /issues
+        • Discord: discord.gg/usekuro
+
+        🎯 Quick commands: HELP, JOIN general, LIST rooms
+
+    # Ping/Pong for connection testing
+    - if: '{{ eq .cmd "PING" }}'
+      respond: |
+        🏓 PONG!
+        📊 Latency: {{ add (mod (unix now) 50) 10 }}ms
+        📅 Server time: {{ now }}
+        ✅ Connection stable
+
+    # Quit/Exit command
+    - if: '{{ or (eq .cmd "QUIT") (eq .cmd "EXIT") (eq .cmd "BYE") }}'
+      respond: |
+        👋 Goodbye from {{ .context.serverName }}!
+
+        📊 Session summary:
+        • Duration: {{ mod (unix now) 120 }} minutes
+        • Messages: {{ mod (unix now) 50 }}
+        • Commands used: {{ mod (unix now) 20 }}
+
+        💫 Thanks for using UseKuro TCP Server!
+        🔌 Connection closing...
+
+  # Default response for unrecognized commands
+  else: |
+    ❌ Unknown command: {{ .cmd }}
+
+    💡 Did you mean:
+    {{ if contains (lower .cmd) "help" }}• HELP - Show available commands{{ end }}
+    {{ if contains (lower .cmd) "join" }}• JOIN <room> - Join a chat room{{ end }}
+    {{ if contains (lower .cmd) "list" }}• LIST rooms - Show available rooms{{ end }}
+    {{ if contains (lower .cmd) "msg" }}• MSG <user> <message> - Send private message{{ end }}
+    {{ if contains (lower .cmd) "game" }}• GAME start <game> - Start a game{{ end }}
+    {{ if contains (lower .cmd) "file" }}• FILE upload <file> - Upload a file{{ end }}
+
+    🔧 Available commands:
+    HELP, JOIN, LIST, MSG, FILE, GAME, STATS, INFO, PING, QUIT
+
+    💬 Just received: "{{ .input }}"
+    📅 Time: {{ now }}
+
+    💡 Type HELP for full command reference

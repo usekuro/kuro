@@ -1,0 +1,571 @@
+protocol: http
+port: 8090
+meta:
+  name: "REST API Complete"
+  description: "Full REST API example with CRUD operations, authentication, and advanced features"
+
+context:
+  variables:
+    apiVersion: "v1"
+    serverName: "UseKuro REST API"
+    users:
+      - id: 1
+        username: "admin"
+        email: "admin@usekuro.com"
+        role: "administrator"
+        active: true
+        created_at: "2024-01-01T00:00:00Z"
+      - id: 2
+        username: "john_doe"
+        email: "john@example.com"
+        role: "user"
+        active: true
+        created_at: "2024-01-15T10:30:00Z"
+      - id: 3
+        username: "jane_smith"
+        email: "jane@example.com"
+        role: "moderator"
+        active: false
+        created_at: "2024-02-01T14:20:00Z"
+    posts:
+      - id: 101
+        title: "Getting Started with UseKuro"
+        content: "UseKuro is a powerful mock server that supports multiple protocols..."
+        author_id: 1
+        status: "published"
+        tags: ["tutorial", "getting-started"]
+        created_at: "2024-01-01T12:00:00Z"
+      - id: 102
+        title: "Advanced TCP Mocking"
+        content: "Learn how to create sophisticated TCP mocks with UseKuro..."
+        author_id: 2
+        status: "draft"
+        tags: ["tutorial", "tcp", "advanced"]
+        created_at: "2024-02-15T09:45:00Z"
+    categories:
+      - id: 1
+        name: "Technology"
+        slug: "technology"
+        description: "Tech-related posts"
+      - id: 2
+        name: "Tutorials"
+        slug: "tutorials"
+        description: "Step-by-step guides"
+
+routes:
+  # API Info and Health
+  - path: /
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        X-API-Version: "{{ .context.apiVersion }}"
+      body: |
+        {
+          "message": "Welcome to {{ .context.serverName }}",
+          "version": "{{ .context.apiVersion }}",
+          "endpoints": {
+            "health": "/health",
+            "users": "/api/{{ .context.apiVersion }}/users",
+            "posts": "/api/{{ .context.apiVersion }}/posts",
+            "categories": "/api/{{ .context.apiVersion }}/categories",
+            "auth": "/api/{{ .context.apiVersion }}/auth"
+          },
+          "documentation": "/docs",
+          "timestamp": "{{ now }}"
+        }
+
+  - path: /health
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Cache-Control: no-cache
+      body: |
+        {
+          "status": "healthy",
+          "uptime": "{{ now }}",
+          "version": "{{ .context.apiVersion }}",
+          "server": "{{ .context.serverName }}",
+          "checks": {
+            "database": "connected",
+            "cache": "operational",
+            "external_apis": "available"
+          }
+        }
+
+  # Authentication
+  - path: /api/{{ .context.apiVersion }}/auth/login
+    method: POST
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Set-Cookie: "session={{ uuid }}; HttpOnly; Secure; Path=/"
+      body: |
+        {
+          "success": true,
+          "token": "{{ uuid }}",
+          "refresh_token": "{{ uuid }}",
+          "user": {
+            "id": 1,
+            "username": "{{ .input.username }}",
+            "email": "admin@usekuro.com",
+            "role": "administrator"
+          },
+          "expires_in": 3600,
+          "issued_at": "{{ now }}"
+        }
+
+  - path: /api/{{ .context.apiVersion }}/auth/logout
+    method: POST
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Set-Cookie: "session=; Max-Age=0; Path=/"
+      body: |
+        {
+          "success": true,
+          "message": "Successfully logged out",
+          "timestamp": "{{ now }}"
+        }
+
+  - path: /api/{{ .context.apiVersion }}/auth/refresh
+    method: POST
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "success": true,
+          "token": "{{ uuid }}",
+          "expires_in": 3600,
+          "issued_at": "{{ now }}"
+        }
+
+  # Users CRUD
+  - path: /api/{{ .context.apiVersion }}/users
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        X-Total-Count: "{{ len .context.users }}"
+        X-Page: "1"
+        X-Per-Page: "10"
+      body: |
+        {
+          "users": [
+            {{ range $i, $user := .context.users }}
+            {
+              "id": {{ $user.id }},
+              "username": "{{ $user.username }}",
+              "email": "{{ $user.email }}",
+              "role": "{{ $user.role }}",
+              "active": {{ $user.active }},
+              "created_at": "{{ $user.created_at }}",
+              "profile_url": "/api/{{ $.context.apiVersion }}/users/{{ $user.id }}"
+            }{{ if not (eq $i (sub (len $.context.users) 1)) }},{{ end }}
+            {{ end }}
+          ],
+          "pagination": {
+            "current_page": 1,
+            "per_page": 10,
+            "total": {{ len .context.users }},
+            "total_pages": 1
+          }
+        }
+
+  - path: /api/{{ .context.apiVersion }}/users/(?P<id>\d+)
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Cache-Control: "max-age=300"
+      body: |
+        {{ $id := .input.id }}
+        {{ $found := false }}
+        {{ range .context.users }}
+          {{ if eq (printf "%v" .id) $id }}
+            {{ $found = true }}
+        {
+          "id": {{ .id }},
+          "username": "{{ .username }}",
+          "email": "{{ .email }}",
+          "role": "{{ .role }}",
+          "active": {{ .active }},
+          "created_at": "{{ .created_at }}",
+          "updated_at": "{{ now }}",
+          "posts_count": {{ if eq .id 1 }}1{{ else if eq .id 2 }}1{{ else }}0{{ end }},
+          "last_login": "{{ now }}",
+          "profile": {
+            "bio": "User bio information",
+            "website": "https://example.com",
+            "location": "Global"
+          }
+        }
+          {{ end }}
+        {{ end }}
+        {{ if not $found }}
+        {
+          "error": "User not found",
+          "code": "USER_NOT_FOUND",
+          "id": "{{ $id }}"
+        }
+        {{ end }}
+
+  - path: /api/{{ .context.apiVersion }}/users
+    method: POST
+    response:
+      status: 201
+      headers:
+        Content-Type: application/json
+        Location: /api/{{ .context.apiVersion }}/users/{{ add (len .context.users) 1 }}
+      body: |
+        {
+          "id": {{ add (len .context.users) 1 }},
+          "username": "{{ .input.username }}",
+          "email": "{{ .input.email }}",
+          "role": "{{ default .input.role "user" }}",
+          "active": true,
+          "created_at": "{{ now }}",
+          "message": "User created successfully"
+        }
+
+  - path: /api/{{ .context.apiVersion }}/users/(?P<id>\d+)
+    method: PUT
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "id": {{ .input.id }},
+          "username": "{{ .input.username }}",
+          "email": "{{ .input.email }}",
+          "role": "{{ .input.role }}",
+          "active": {{ default .input.active true }},
+          "updated_at": "{{ now }}",
+          "message": "User updated successfully"
+        }
+
+  - path: /api/{{ .context.apiVersion }}/users/(?P<id>\d+)
+    method: DELETE
+    response:
+      status: 204
+      headers:
+        X-Deleted-At: "{{ now }}"
+
+  # Posts CRUD
+  - path: /api/{{ .context.apiVersion }}/posts
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        X-Total-Count: "{{ len .context.posts }}"
+      body: |
+        {
+          "posts": [
+            {{ range $i, $post := .context.posts }}
+            {
+              "id": {{ $post.id }},
+              "title": "{{ $post.title }}",
+              "content": "{{ slice $post.content 0 100 }}...",
+              "author_id": {{ $post.author_id }},
+              "status": "{{ $post.status }}",
+              "tags": {{ toJson $post.tags }},
+              "created_at": "{{ $post.created_at }}",
+              "url": "/api/{{ $.context.apiVersion }}/posts/{{ $post.id }}"
+            }{{ if not (eq $i (sub (len $.context.posts) 1)) }},{{ end }}
+            {{ end }}
+          ],
+          "total": {{ len .context.posts }}
+        }
+
+  - path: /api/{{ .context.apiVersion }}/posts/(?P<id>\d+)
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: |
+        {{ $id := .input.id }}
+        {{ $found := false }}
+        {{ range .context.posts }}
+          {{ if eq (printf "%v" .id) $id }}
+            {{ $found = true }}
+        {
+          "id": {{ .id }},
+          "title": "{{ .title }}",
+          "content": "{{ .content }}",
+          "author_id": {{ .author_id }},
+          "status": "{{ .status }}",
+          "tags": {{ toJson .tags }},
+          "created_at": "{{ .created_at }}",
+          "updated_at": "{{ now }}",
+          "views": {{ add (mod (unix now) 1000) 100 }},
+          "likes": {{ mod (unix now) 50 }}
+        }
+          {{ end }}
+        {{ end }}
+        {{ if not $found }}
+        {
+          "error": "Post not found",
+          "code": "POST_NOT_FOUND",
+          "id": "{{ $id }}"
+        }
+        {{ end }}
+
+  - path: /api/{{ .context.apiVersion }}/posts
+    method: POST
+    response:
+      status: 201
+      headers:
+        Content-Type: application/json
+        Location: /api/{{ .context.apiVersion }}/posts/{{ add (len .context.posts) 100 }}
+      body: |
+        {
+          "id": {{ add (len .context.posts) 100 }},
+          "title": "{{ .input.title }}",
+          "content": "{{ .input.content }}",
+          "author_id": {{ default .input.author_id 1 }},
+          "status": "{{ default .input.status "draft" }}",
+          "tags": {{ toJson .input.tags }},
+          "created_at": "{{ now }}",
+          "message": "Post created successfully"
+        }
+
+  # Categories
+  - path: /api/{{ .context.apiVersion }}/categories
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "categories": [
+            {{ range $i, $cat := .context.categories }}
+            {
+              "id": {{ $cat.id }},
+              "name": "{{ $cat.name }}",
+              "slug": "{{ $cat.slug }}",
+              "description": "{{ $cat.description }}",
+              "posts_count": {{ if eq $cat.id 1 }}1{{ else }}1{{ end }}
+            }{{ if not (eq $i (sub (len $.context.categories) 1)) }},{{ end }}
+            {{ end }}
+          ],
+          "total": {{ len .context.categories }}
+        }
+
+  # Search and Filtering
+  - path: /api/{{ .context.apiVersion }}/search
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "query": "{{ .input.q }}",
+          "results": {
+            "users": [
+              {{ range .context.users }}
+                {{ if or (contains (lower .username) (lower .input.q)) (contains (lower .email) (lower .input.q)) }}
+              {
+                "type": "user",
+                "id": {{ .id }},
+                "title": "{{ .username }}",
+                "description": "{{ .email }}",
+                "url": "/api/{{ $.context.apiVersion }}/users/{{ .id }}"
+              },
+                {{ end }}
+              {{ end }}
+            ],
+            "posts": [
+              {{ range .context.posts }}
+                {{ if or (contains (lower .title) (lower .input.q)) (contains (lower .content) (lower .input.q)) }}
+              {
+                "type": "post",
+                "id": {{ .id }},
+                "title": "{{ .title }}",
+                "description": "{{ slice .content 0 100 }}...",
+                "url": "/api/{{ $.context.apiVersion }}/posts/{{ .id }}"
+              },
+                {{ end }}
+              {{ end }}
+            ]
+          },
+          "total_results": {{ if .input.q }}3{{ else }}0{{ end }},
+          "search_time": "{{ add (mod (unix now) 100) 5 }}ms"
+        }
+
+  # Statistics and Analytics
+  - path: /api/{{ .context.apiVersion }}/stats
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Cache-Control: "max-age=60"
+      body: |
+        {
+          "overview": {
+            "total_users": {{ len .context.users }},
+            "active_users": {{ len (where .context.users "active" true) }},
+            "total_posts": {{ len .context.posts }},
+            "published_posts": {{ len (where .context.posts "status" "published") }},
+            "draft_posts": {{ len (where .context.posts "status" "draft") }}
+          },
+          "activity": {
+            "posts_this_week": {{ mod (unix now) 10 }},
+            "new_users_this_week": {{ mod (unix now) 5 }},
+            "total_views": {{ add (mod (unix now) 10000) 5000 }},
+            "total_likes": {{ add (mod (unix now) 1000) 500 }}
+          },
+          "generated_at": "{{ now }}"
+        }
+
+  # File Upload simulation
+  - path: /api/{{ .context.apiVersion }}/upload
+    method: POST
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "success": true,
+          "file": {
+            "id": "{{ uuid }}",
+            "filename": "{{ default .input.filename "uploaded_file.txt" }}",
+            "size": {{ add (mod (unix now) 10000) 1000 }},
+            "type": "{{ default .input.type "text/plain" }}",
+            "url": "/uploads/{{ uuid }}/{{ default .input.filename "uploaded_file.txt" }}",
+            "uploaded_at": "{{ now }}"
+          }
+        }
+
+  # WebHooks simulation
+  - path: /api/{{ .context.apiVersion }}/webhooks
+    method: POST
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "webhook_id": "{{ uuid }}",
+          "event": "{{ .input.event }}",
+          "processed_at": "{{ now }}",
+          "status": "received",
+          "data": {{ toJson .input }}
+        }
+
+  # Error handling examples
+  - path: /api/{{ .context.apiVersion }}/error/400
+    method: GET
+    response:
+      status: 400
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "error": "Bad Request",
+          "code": "INVALID_REQUEST",
+          "message": "The request was malformed or missing required parameters",
+          "timestamp": "{{ now }}"
+        }
+
+  - path: /api/{{ .context.apiVersion }}/error/401
+    method: GET
+    response:
+      status: 401
+      headers:
+        Content-Type: application/json
+        WWW-Authenticate: "Bearer"
+      body: |
+        {
+          "error": "Unauthorized",
+          "code": "AUTHENTICATION_REQUIRED",
+          "message": "Valid authentication credentials are required",
+          "timestamp": "{{ now }}"
+        }
+
+  - path: /api/{{ .context.apiVersion }}/error/403
+    method: GET
+    response:
+      status: 403
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "error": "Forbidden",
+          "code": "INSUFFICIENT_PERMISSIONS",
+          "message": "You don't have permission to access this resource",
+          "timestamp": "{{ now }}"
+        }
+
+  - path: /api/{{ .context.apiVersion }}/error/429
+    method: GET
+    response:
+      status: 429
+      headers:
+        Content-Type: application/json
+        Retry-After: "60"
+        X-RateLimit-Limit: "100"
+        X-RateLimit-Remaining: "0"
+        X-RateLimit-Reset: "{{ unix now }}"
+      body: |
+        {
+          "error": "Too Many Requests",
+          "code": "RATE_LIMIT_EXCEEDED",
+          "message": "Rate limit exceeded. Please try again later",
+          "retry_after": 60,
+          "timestamp": "{{ now }}"
+        }
+
+  - path: /api/{{ .context.apiVersion }}/error/500
+    method: GET
+    response:
+      status: 500
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "error": "Internal Server Error",
+          "code": "INTERNAL_ERROR",
+          "message": "An unexpected error occurred. Please try again later",
+          "request_id": "{{ uuid }}",
+          "timestamp": "{{ now }}"
+        }
+
+  # Catch-all for undefined endpoints
+  - path: /api/{{ .context.apiVersion }}/.*
+    method: GET
+    response:
+      status: 404
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "error": "Not Found",
+          "code": "ENDPOINT_NOT_FOUND",
+          "message": "The requested endpoint was not found",
+          "path": "{{ .input.path }}",
+          "available_endpoints": [
+            "/api/{{ .context.apiVersion }}/users",
+            "/api/{{ .context.apiVersion }}/posts",
+            "/api/{{ .context.apiVersion }}/categories",
+            "/api/{{ .context.apiVersion }}/auth",
+            "/api/{{ .context.apiVersion }}/search",
+            "/api/{{ .context.apiVersion }}/stats"
+          ],
+          "timestamp": "{{ now }}"
+        }

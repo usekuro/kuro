@@ -1,0 +1,18 @@
+protocol: ws
+port: 9191
+meta:
+  name: "WS Echo"
+  description: "Mock básico por WebSocket"
+
+context:
+  variables:
+    saludo: "¡Hola desde WebSocket!"
+
+onMessage:
+  match: ""
+  conditions:
+    - if: '{{ eq .msg "ping" }}'
+      respond: "pong"
+    - if: '{{ eq .msg "hello" }}'
+      respond: "{{ .context.saludo }}"
+  else: "comando no reconocido"

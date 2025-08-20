@@ -1,0 +1,639 @@
+protocol: ws
+port: 8085
+meta:
+  name: "WebSocket Complete Server"
+  description: "Comprehensive WebSocket server with real-time features, chat, gaming, and live data"
+
+session:
+  timeout: 600s
+
+context:
+  variables:
+    serverName: "UseKuro WebSocket Hub"
+    version: "2.5.0"
+    maxConnections: 10000
+    features:
+      - "Real-time chat"
+      - "Live data streaming"
+      - "Multiplayer gaming"
+      - "File sharing"
+      - "Video conferencing"
+      - "Collaborative editing"
+      - "Push notifications"
+    chatRooms:
+      - id: "general"
+        name: "General Chat"
+        topic: "Welcome to general discussion"
+        users: ["alice", "bob", "charlie"]
+        created: "2024-01-01T00:00:00Z"
+      - id: "tech"
+        name: "Tech Talk"
+        topic: "Technology discussions and Q&A"
+        users: ["dev1", "dev2", "admin"]
+        created: "2024-01-15T10:00:00Z"
+      - id: "gaming"
+        name: "Gaming Lounge"
+        topic: "Game discussions and tournaments"
+        users: ["gamer1", "gamer2"]
+        created: "2024-02-01T14:00:00Z"
+    users:
+      - id: "user_001"
+        username: "alice"
+        role: "moderator"
+        status: "online"
+        avatar: "https://api.usekuro.com/avatars/alice.png"
+        joinedAt: "2024-01-01T10:00:00Z"
+      - id: "user_002"
+        username: "bob"
+        role: "user"
+        status: "online"
+        avatar: "https://api.usekuro.com/avatars/bob.png"
+        joinedAt: "2024-01-15T14:30:00Z"
+      - id: "user_003"
+        username: "charlie"
+        role: "user"
+        status: "away"
+        avatar: "https://api.usekuro.com/avatars/charlie.png"
+        joinedAt: "2024-02-01T09:15:00Z"
+    games:
+      - id: "game_001"
+        name: "Snake Multiplayer"
+        type: "arcade"
+        maxPlayers: 4
+        currentPlayers: 2
+        status: "waiting"
+      - id: "game_002"
+        name: "Real-time Chess"
+        type: "board"
+        maxPlayers: 2
+        currentPlayers: 0
+        status: "available"
+      - id: "game_003"
+        name: "Word Battle"
+        type: "word"
+        maxPlayers: 8
+        currentPlayers: 5
+        status: "active"
+    notifications:
+      - id: "notif_001"
+        type: "system"
+        title: "Server Maintenance"
+        message: "Scheduled maintenance in 2 hours"
+        priority: "high"
+        timestamp: "2024-01-15T20:00:00Z"
+      - id: "notif_002"
+        type: "feature"
+        title: "New Feature Available"
+        message: "Video conferencing is now live!"
+        priority: "medium"
+        timestamp: "2024-01-16T10:00:00Z"
+
+onMessage:
+  match: ".*"
+  conditions:
+    # Connection established
+    - if: '{{ contains .input "\"type\":\"connect\"" }}'
+      respond: |
+        {
+          "type": "welcome",
+          "server": "{{ .context.serverName }}",
+          "version": "{{ .context.version }}",
+          "timestamp": "{{ now }}",
+          "connection_id": "{{ uuid }}",
+          "features": {{ toJson .context.features }},
+          "limits": {
+            "max_connections": {{ .context.maxConnections }},
+            "message_rate": "100/minute",
+            "file_size_limit": "50MB"
+          },
+          "user": {
+            "id": "{{ uuid }}",
+            "username": "Guest_{{ uuid | slice 0 8 }}",
+            "role": "guest",
+            "status": "online"
+          },
+          "available_rooms": [
+            {{ range $i, $room := .context.chatRooms }}
+            {
+              "id": "{{ $room.id }}",
+              "name": "{{ $room.name }}",
+              "topic": "{{ $room.topic }}",
+              "user_count": {{ len $room.users }}
+            }{{ if not (eq $i (sub (len $.context.chatRooms) 1)) }},{{ end }}
+            {{ end }}
+          ]
+        }
+
+    # Chat system
+    - if: '{{ contains .input "\"type\":\"chat_join\"" }}'
+      respond: |
+        {
+          "type": "chat_joined",
+          "room_id": "{{ if contains .input "\"room_id\":" }}general{{ else }}general{{ end }}",
+          "timestamp": "{{ now }}",
+          "user": {
+            "id": "{{ uuid }}",
+            "username": "Guest_{{ uuid | slice 0 8 }}",
+            "avatar": "https://api.usekuro.com/avatars/default.png"
+          },
+          "room_info": {
+            "name": "General Chat",
+            "topic": "Welcome to general discussion",
+            "users": [
+              {{ range $i, $user := .context.users }}
+              {
+                "id": "{{ $user.id }}",
+                "username": "{{ $user.username }}",
+                "role": "{{ $user.role }}",
+                "status": "{{ $user.status }}",
+                "avatar": "{{ $user.avatar }}"
+              }{{ if not (eq $i (sub (len $.context.users) 1)) }},{{ end }}
+              {{ end }}
+            ]
+          },
+          "recent_messages": [
+            {
+              "id": "msg_001",
+              "username": "alice",
+              "message": "Welcome to the room!",
+              "timestamp": "{{ now }}",
+              "type": "text"
+            },
+            {
+              "id": "msg_002",
+              "username": "bob",
+              "message": "Hey everyone! 👋",
+              "timestamp": "{{ now }}",
+              "type": "text"
+            }
+          ]
+        }
+
+    - if: '{{ contains .input "\"type\":\"chat_message\"" }}'
+      respond: |
+        {
+          "type": "message_received",
+          "message_id": "{{ uuid }}",
+          "timestamp": "{{ now }}",
+          "user": {
+            "id": "{{ uuid }}",
+            "username": "Guest_{{ uuid | slice 0 8 }}",
+            "avatar": "https://api.usekuro.com/avatars/default.png"
+          },
+          "message": "{{ if contains .input "\"content\":" }}Message received and broadcasted{{ else }}Hello from WebSocket!{{ end }}",
+          "room_id": "general",
+          "mentions": [],
+          "reactions": {},
+          "broadcast": {
+            "type": "new_message",
+            "room_id": "general",
+            "message": {
+              "id": "{{ uuid }}",
+              "content": "{{ if contains .input "\"content\":" }}Message received{{ else }}Hello from WebSocket!{{ end }}",
+              "author": {
+                "username": "Guest_{{ uuid | slice 0 8 }}",
+                "avatar": "https://api.usekuro.com/avatars/default.png"
+              },
+              "timestamp": "{{ now }}",
+              "type": "text"
+            }
+          }
+        }
+
+    # Real-time data streaming
+    - if: '{{ contains .input "\"type\":\"subscribe_data\"" }}'
+      respond: |
+        {
+          "type": "data_subscription",
+          "subscription_id": "{{ uuid }}",
+          "data_type": "{{ if contains .input "\"data_type\":" }}live_metrics{{ else }}live_metrics{{ end }}",
+          "timestamp": "{{ now }}",
+          "initial_data": {
+            "metrics": {
+              "cpu_usage": {{ add 45.2 (mod (unix now) 30) }},
+              "memory_usage": {{ add 62.8 (mod (unix now) 25) }},
+              "network_io": {
+                "in": {{ add 1024 (mod (unix now) 500) }},
+                "out": {{ add 2048 (mod (unix now) 800) }}
+              },
+              "active_connections": {{ add 150 (mod (unix now) 50) }},
+              "messages_per_second": {{ add 25 (mod (unix now) 20) }}
+            },
+            "server_stats": {
+              "uptime": "{{ add 1 (mod (unix now) 24) }}h {{ mod (unix now) 60 }}m",
+              "total_users": {{ add 1000 (mod (unix now) 100) }},
+              "active_rooms": {{ len .context.chatRooms }},
+              "active_games": {{ len (where .context.games "status" "active") }}
+            }
+          },
+          "update_interval": "5s",
+          "status": "subscribed"
+        }
+
+    - if: '{{ contains .input "\"type\":\"get_live_data\"" }}'
+      respond: |
+        {
+          "type": "live_data_update",
+          "timestamp": "{{ now }}",
+          "data": {
+            "system_metrics": {
+              "cpu": {
+                "usage": {{ add 45 (mod (unix now) 35) }},
+                "cores": 8,
+                "load_avg": [{{ div (mod (unix now) 300) 100.0 }}, {{ div (mod (unix now) 250) 100.0 }}, {{ div (mod (unix now) 200) 100.0 }}]
+              },
+              "memory": {
+                "used": {{ add 4096 (mod (unix now) 2048) }},
+                "total": 16384,
+                "percentage": {{ add 25 (mod (unix now) 50) }}
+              },
+              "network": {
+                "bytes_in": {{ add 1000000 (mul (unix now) 1000) }},
+                "bytes_out": {{ add 2000000 (mul (unix now) 1500) }},
+                "packets_in": {{ add 5000 (mod (unix now) 1000) }},
+                "packets_out": {{ add 7500 (mod (unix now) 1500) }}
+              }
+            },
+            "application_metrics": {
+              "active_connections": {{ add 150 (mod (unix now) 50) }},
+              "messages_per_minute": {{ add 1200 (mod (unix now) 300) }},
+              "rooms_active": {{ len .context.chatRooms }},
+              "games_running": {{ len .context.games }},
+              "files_shared": {{ mod (unix now) 20 }}
+            },
+            "real_time_events": [
+              {
+                "type": "user_joined",
+                "username": "NewUser_{{ uuid | slice 0 6 }}",
+                "room": "general",
+                "timestamp": "{{ now }}"
+              },
+              {
+                "type": "message_sent",
+                "count": {{ add 1 (mod (unix now) 10) }},
+                "timestamp": "{{ now }}"
+              }
+            ]
+          }
+        }
+
+    # Gaming system
+    - if: '{{ contains .input "\"type\":\"game_join\"" }}'
+      respond: |
+        {
+          "type": "game_joined",
+          "game_id": "{{ if contains .input "\"game_id\":" }}game_001{{ else }}game_001{{ end }}",
+          "timestamp": "{{ now }}",
+          "player": {
+            "id": "{{ uuid }}",
+            "username": "Guest_{{ uuid | slice 0 8 }}",
+            "avatar": "https://api.usekuro.com/avatars/default.png"
+          },
+          "game_info": {
+            "name": "Snake Multiplayer",
+            "type": "arcade",
+            "max_players": 4,
+            "current_players": 3,
+            "status": "waiting",
+            "rules": {
+              "goal": "Grow your snake by eating food",
+              "controls": "Arrow keys or WASD",
+              "lives": 1,
+              "time_limit": "5 minutes"
+            }
+          },
+          "players": [
+            {
+              "id": "player_001",
+              "username": "alice",
+              "score": 150,
+              "color": "#ff0000",
+              "ready": true
+            },
+            {
+              "id": "player_002",
+              "username": "bob",
+              "score": 120,
+              "color": "#00ff00",
+              "ready": true
+            },
+            {
+              "id": "{{ uuid }}",
+              "username": "Guest_{{ uuid | slice 0 8 }}",
+              "score": 0,
+              "color": "#0000ff",
+              "ready": false
+            }
+          ],
+          "waiting_for": "Player ready confirmation"
+        }
+
+    - if: '{{ contains .input "\"type\":\"game_action\"" }}'
+      respond: |
+        {
+          "type": "game_update",
+          "game_id": "game_001",
+          "timestamp": "{{ now }}",
+          "action_result": "success",
+          "game_state": {
+            "status": "active",
+            "round": 1,
+            "time_remaining": {{ add 240 (mod (unix now) 60) }},
+            "leaderboard": [
+              {
+                "player": "alice",
+                "score": {{ add 200 (mod (unix now) 100) }},
+                "position": 1
+              },
+              {
+                "player": "Guest_{{ uuid | slice 0 8 }}",
+                "score": {{ add 150 (mod (unix now) 75) }},
+                "position": 2
+              },
+              {
+                "player": "bob",
+                "score": {{ add 100 (mod (unix now) 50) }},
+                "position": 3
+              }
+            ]
+          },
+          "broadcast": {
+            "type": "player_moved",
+            "player_id": "{{ uuid }}",
+            "new_position": {
+              "x": {{ mod (unix now) 800 }},
+              "y": {{ mod (unix now) 600 }}
+            },
+            "action": "{{ if contains .input "\"action\":" }}move{{ else }}move{{ end }}"
+          }
+        }
+
+    # File sharing
+    - if: '{{ contains .input "\"type\":\"file_share\"" }}'
+      respond: |
+        {
+          "type": "file_shared",
+          "file_id": "{{ uuid }}",
+          "timestamp": "{{ now }}",
+          "uploader": {
+            "id": "{{ uuid }}",
+            "username": "Guest_{{ uuid | slice 0 8 }}"
+          },
+          "file_info": {
+            "name": "{{ if contains .input "\"filename\":" }}shared_file.pdf{{ else }}document.pdf{{ end }}",
+            "size": {{ add 1048576 (mod (unix now) 5242880) }},
+            "type": "{{ if contains .input "\"file_type\":" }}application/pdf{{ else }}application/pdf{{ end }}",
+            "checksum": "sha256:{{ uuid }}",
+            "download_url": "/files/{{ uuid }}/download",
+            "preview_url": "/files/{{ uuid }}/preview",
+            "expires_at": "{{ now }}"
+          },
+          "sharing": {
+            "room_id": "general",
+            "permissions": "read",
+            "download_count": 0,
+            "max_downloads": 100
+          },
+          "broadcast": {
+            "type": "new_file_shared",
+            "room_id": "general",
+            "file": {
+              "name": "{{ if contains .input "\"filename\":" }}shared_file.pdf{{ else }}document.pdf{{ end }}",
+              "size_mb": {{ div (add 1048576 (mod (unix now) 5242880)) 1048576 }},
+              "shared_by": "Guest_{{ uuid | slice 0 8 }}",
+              "timestamp": "{{ now }}"
+            }
+          }
+        }
+
+    # Video conferencing
+    - if: '{{ contains .input "\"type\":\"video_call\"" }}'
+      respond: |
+        {
+          "type": "video_call_response",
+          "call_id": "{{ uuid }}",
+          "timestamp": "{{ now }}",
+          "action": "{{ if contains .input "\"action\":" }}start{{ else }}start{{ end }}",
+          "call_info": {
+            "type": "group_call",
+            "room_id": "general",
+            "max_participants": 10,
+            "current_participants": 1,
+            "features": {
+              "video": true,
+              "audio": true,
+              "screen_share": true,
+              "recording": false,
+              "chat": true
+            }
+          },
+          "webrtc": {
+            "ice_servers": [
+              {
+                "urls": "stun:stun.usekuro.com:3478"
+              },
+              {
+                "urls": "turn:turn.usekuro.com:3478",
+                "username": "usekuro_user",
+                "credential": "temp_token_{{ uuid }}"
+              }
+            ],
+            "media_constraints": {
+              "video": {
+                "width": { "min": 640, "ideal": 1280, "max": 1920 },
+                "height": { "min": 480, "ideal": 720, "max": 1080 },
+                "frameRate": { "ideal": 30 }
+              },
+              "audio": {
+                "echoCancellation": true,
+                "noiseSuppression": true,
+                "autoGainControl": true
+              }
+            }
+          },
+          "participants": [
+            {
+              "id": "{{ uuid }}",
+              "username": "Guest_{{ uuid | slice 0 8 }}",
+              "video_enabled": true,
+              "audio_enabled": true,
+              "screen_sharing": false
+            }
+          ]
+        }
+
+    # Collaborative editing
+    - if: '{{ contains .input "\"type\":\"collab_edit\"" }}'
+      respond: |
+        {
+          "type": "collaboration_update",
+          "document_id": "{{ uuid }}",
+          "timestamp": "{{ now }}",
+          "operation": "{{ if contains .input "\"operation\":" }}insert{{ else }}insert{{ end }}",
+          "edit_info": {
+            "user": {
+              "id": "{{ uuid }}",
+              "username": "Guest_{{ uuid | slice 0 8 }}",
+              "cursor_color": "#{{ printf "%06x" (mod (unix now) 16777215) }}"
+            },
+            "change": {
+              "type": "text_insert",
+              "position": {{ mod (unix now) 1000 }},
+              "content": "{{ if contains .input "\"content\":" }}Text inserted{{ else }}Sample text{{ end }}",
+              "length": {{ if contains .input "\"content\":" }}13{{ else }}11{{ end }}
+            }
+          },
+          "document_state": {
+            "title": "Collaborative Document",
+            "content_length": {{ add 500 (mod (unix now) 1000) }},
+            "version": {{ add 1 (mod (unix now) 50) }},
+            "last_modified": "{{ now }}",
+            "active_editors": [
+              {
+                "username": "alice",
+                "cursor_position": {{ mod (unix now) 800 }},
+                "selection": { "start": 100, "end": 150 }
+              },
+              {
+                "username": "Guest_{{ uuid | slice 0 8 }}",
+                "cursor_position": {{ mod (unix now) 1000 }},
+                "selection": null
+              }
+            ]
+          },
+          "broadcast": {
+            "type": "document_changed",
+            "document_id": "{{ uuid }}",
+            "change": {
+              "author": "Guest_{{ uuid | slice 0 8 }}",
+              "operation": "insert",
+              "timestamp": "{{ now }}"
+            }
+          }
+        }
+
+    # Push notifications
+    - if: '{{ contains .input "\"type\":\"notifications\"" }}'
+      respond: |
+        {
+          "type": "notifications_response",
+          "timestamp": "{{ now }}",
+          "notifications": [
+            {{ range $i, $notif := .context.notifications }}
+            {
+              "id": "{{ $notif.id }}",
+              "type": "{{ $notif.type }}",
+              "title": "{{ $notif.title }}",
+              "message": "{{ $notif.message }}",
+              "priority": "{{ $notif.priority }}",
+              "timestamp": "{{ $notif.timestamp }}",
+              "read": false,
+              "actions": [
+                {
+                  "id": "mark_read",
+                  "label": "Mark as Read",
+                  "type": "button"
+                },
+                {
+                  "id": "dismiss",
+                  "label": "Dismiss",
+                  "type": "button"
+                }
+              ]
+            }{{ if not (eq $i (sub (len $.context.notifications) 1)) }},{{ end }}
+            {{ end }}
+          ],
+          "unread_count": {{ len .context.notifications }},
+          "subscription_info": {
+            "push_enabled": true,
+            "email_enabled": false,
+            "sms_enabled": false,
+            "categories": ["system", "feature", "social", "gaming"]
+          }
+        }
+
+    # Server status and health
+    - if: '{{ contains .input "\"type\":\"server_status\"" }}'
+      respond: |
+        {
+          "type": "server_status",
+          "timestamp": "{{ now }}",
+          "status": "operational",
+          "uptime": "{{ add 1 (mod (unix now) 24) }}h {{ mod (unix now) 60 }}m",
+          "version": "{{ .context.version }}",
+          "connections": {
+            "active": {{ add 150 (mod (unix now) 50) }},
+            "max": {{ .context.maxConnections }},
+            "percentage": {{ div (add 150 (mod (unix now) 50)) (div .context.maxConnections 100) }}
+          },
+          "services": {
+            "chat": "healthy",
+            "gaming": "healthy",
+            "file_sharing": "healthy",
+            "video_calls": "{{ if gt (mod (unix now) 10) 7 }}degraded{{ else }}healthy{{ end }}",
+            "collaboration": "healthy",
+            "notifications": "healthy"
+          },
+          "performance": {
+            "cpu_usage": {{ add 25 (mod (unix now) 30) }},
+            "memory_usage": {{ add 45 (mod (unix now) 25) }},
+            "latency_avg": {{ add 15 (mod (unix now) 20) }},
+            "throughput_mbps": {{ add 500 (mod (unix now) 200) }}
+          }
+        }
+
+    # WebSocket ping/pong
+    - if: '{{ contains .input "ping" }}'
+      respond: |
+        {
+          "type": "pong",
+          "timestamp": "{{ now }}",
+          "latency": "{{ add 10 (mod (unix now) 40) }}ms",
+          "connection_id": "{{ uuid }}",
+          "server_time": "{{ now }}",
+          "uptime": "{{ add 1 (mod (unix now) 24) }}h {{ mod (unix now) 60 }}m"
+        }
+
+    # User presence updates
+    - if: '{{ contains .input "\"type\":\"presence\"" }}'
+      respond: |
+        {
+          "type": "presence_updated",
+          "user_id": "{{ uuid }}",
+          "timestamp": "{{ now }}",
+          "status": "{{ if contains .input "\"status\":" }}online{{ else }}online{{ end }}",
+          "activity": "{{ if contains .input "\"activity\":" }}chatting{{ else }}idle{{ end }}",
+          "last_seen": "{{ now }}",
+          "broadcast": {
+            "type": "user_status_changed",
+            "user": {
+              "id": "{{ uuid }}",
+              "username": "Guest_{{ uuid | slice 0 8 }}",
+              "status": "online",
+              "activity": "chatting"
+            }
+          }
+        }
+
+  # Default response for unrecognized messages
+  else: |
+    {
+      "type": "error",
+      "code": "UNKNOWN_MESSAGE_TYPE",
+      "message": "Message type not recognized",
+      "received_data": {{ toJson .input }},
+      "timestamp": "{{ now }}",
+      "suggestions": [
+        "connect - Establish connection",
+        "chat_join - Join chat room",
+        "chat_message - Send message",
+        "subscribe_data - Subscribe to live data",
+        "game_join - Join a game",
+        "file_share - Share a file",
+        "video_call - Start video call",
+        "collab_edit - Collaborative editing",
+        "notifications - Get notifications",
+        "server_status - Get server status"
+      ],
+      "help": "Send a JSON message with a 'type' field to interact with the WebSocket server"
+    }

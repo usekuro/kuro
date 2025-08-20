@@ -1,0 +1,665 @@
+protocol: sftp
+port: 2223
+meta:
+  name: "SFTP Complete File Server"
+  description: "Comprehensive SFTP server with file operations, user management, and advanced features"
+
+sftpAuth:
+  username: "usekuro"
+  password: "kuro123"
+
+context:
+  variables:
+    serverName: "UseKuro SFTP Hub"
+    version: "2.0.0"
+    maxConnections: 500
+    features:
+      - "Multi-user file sharing"
+      - "Directory management"
+      - "File permissions"
+      - "Transfer monitoring"
+      - "Backup and sync"
+      - "Version control"
+      - "Audit logging"
+    users:
+      - username: "admin"
+        password: "admin123"
+        role: "administrator"
+        home_dir: "/home/admin"
+        permissions: ["read", "write", "delete", "create_dir"]
+        quota_mb: 10240
+        last_login: "2024-01-01T10:00:00Z"
+      - username: "developer"
+        password: "dev123"
+        role: "developer"
+        home_dir: "/home/developer"
+        permissions: ["read", "write", "create_dir"]
+        quota_mb: 5120
+        last_login: "2024-01-15T14:30:00Z"
+      - username: "readonly"
+        password: "readonly123"
+        role: "viewer"
+        home_dir: "/home/readonly"
+        permissions: ["read"]
+        quota_mb: 1024
+        last_login: "2024-02-01T09:15:00Z"
+    shared_folders:
+      - name: "public"
+        path: "/shared/public"
+        permissions: "755"
+        description: "Public file sharing area"
+        owner: "admin"
+        size_mb: 1024
+      - name: "projects"
+        path: "/shared/projects"
+        permissions: "770"
+        description: "Development projects workspace"
+        owner: "developer"
+        size_mb: 2048
+      - name: "documents"
+        path: "/shared/documents"
+        permissions: "644"
+        description: "Shared documents and resources"
+        owner: "admin"
+        size_mb: 512
+    file_types:
+      - extension: ".pdf"
+        category: "document"
+        max_size_mb: 50
+        allowed: true
+      - extension: ".txt"
+        category: "text"
+        max_size_mb: 10
+        allowed: true
+      - extension: ".jpg"
+        category: "image"
+        max_size_mb: 25
+        allowed: true
+      - extension: ".zip"
+        category: "archive"
+        max_size_mb: 100
+        allowed: true
+      - extension: ".exe"
+        category: "executable"
+        max_size_mb: 0
+        allowed: false
+
+files:
+  # Welcome and server information
+  - path: /README.txt
+    content: |
+      ╔══════════════════════════════════════════════════════════════╗
+      ║                {{ .context.serverName }} v{{ .context.version }}               ║
+      ╠══════════════════════════════════════════════════════════════╣
+      ║ Welcome to the UseKuro SFTP Complete File Server!           ║
+      ║                                                              ║
+      ║ Server Information:                                          ║
+      ║ • Version: {{ .context.version }}                                        ║
+      ║ • Max Connections: {{ .context.maxConnections }}                               ║
+      ║ • Current Time: {{ now }}                         ║
+      ║                                                              ║
+      ║ Available Features:                                          ║
+      {{ range .context.features }}
+      ║ • {{ . }}                                     ║
+      {{ end }}
+      ║                                                              ║
+      ║ User Accounts:                                               ║
+      {{ range .context.users }}
+      ║ • {{ .username }} ({{ .role }}) - Quota: {{ .quota_mb }}MB               ║
+      {{ end }}
+      ║                                                              ║
+      ║ Shared Folders:                                              ║
+      {{ range .context.shared_folders }}
+      ║ • {{ .path }} - {{ .description }}                 ║
+      {{ end }}
+      ║                                                              ║
+      ║ For support, contact: support@usekuro.com                   ║
+      ╚══════════════════════════════════════════════════════════════╝
+
+  # Server configuration file
+  - path: /config/server.conf
+    content: |
+      # {{ .context.serverName }} Configuration
+      # Generated: {{ now }}
+
+      [Server]
+      name={{ .context.serverName }}
+      version={{ .context.version }}
+      port=2223
+      max_connections={{ .context.maxConnections }}
+      protocol=sftp
+
+      [Security]
+      auth_methods=password,publickey
+      encryption=aes256-ctr
+      mac=hmac-sha2-256
+      key_exchange=diffie-hellman-group14-sha256
+
+      [Users]
+      {{ range .context.users }}
+      [user.{{ .username }}]
+      role={{ .role }}
+      home={{ .home_dir }}
+      quota={{ .quota_mb }}MB
+      permissions={{ join .permissions "," }}
+      {{ end }}
+
+      [Shared]
+      {{ range .context.shared_folders }}
+      [shared.{{ .name }}]
+      path={{ .path }}
+      owner={{ .owner }}
+      permissions={{ .permissions }}
+      size={{ .size_mb }}MB
+      {{ end }}
+
+      [FileTypes]
+      {{ range .context.file_types }}
+      {{ .extension }}={{ .category }},{{ .max_size_mb }}MB,{{ .allowed }}
+      {{ end }}
+
+      [Logging]
+      level=INFO
+      file=/var/log/usekuro-sftp.log
+      audit=true
+      max_size=100MB
+      rotate=daily
+
+  # User management documentation
+  - path: /docs/user-management.md
+    content: |
+      # User Management Guide
+
+      ## {{ .context.serverName }} v{{ .context.version }}
+
+      Generated: {{ now }}
+
+      ## User Accounts
+
+      ### Administrator Users
+      {{ range .context.users }}
+      {{ if eq .role "administrator" }}
+      **{{ .username }}**
+      - Role: {{ .role }}
+      - Home Directory: {{ .home_dir }}
+      - Permissions: {{ join .permissions ", " }}
+      - Storage Quota: {{ .quota_mb }} MB
+      - Last Login: {{ .last_login }}
+      {{ end }}
+      {{ end }}
+
+      ### Developer Users
+      {{ range .context.users }}
+      {{ if eq .role "developer" }}
+      **{{ .username }}**
+      - Role: {{ .role }}
+      - Home Directory: {{ .home_dir }}
+      - Permissions: {{ join .permissions ", " }}
+      - Storage Quota: {{ .quota_mb }} MB
+      - Last Login: {{ .last_login }}
+      {{ end }}
+      {{ end }}
+
+      ### Read-Only Users
+      {{ range .context.users }}
+      {{ if eq .role "viewer" }}
+      **{{ .username }}**
+      - Role: {{ .role }}
+      - Home Directory: {{ .home_dir }}
+      - Permissions: {{ join .permissions ", " }}
+      - Storage Quota: {{ .quota_mb }} MB
+      - Last Login: {{ .last_login }}
+      {{ end }}
+      {{ end }}
+
+      ## Permission Levels
+
+      | Permission | Description |
+      |------------|-------------|
+      | read | View and download files |
+      | write | Upload and modify files |
+      | delete | Remove files and folders |
+      | create_dir | Create new directories |
+
+      ## Storage Quotas
+
+      - Administrator: 10 GB
+      - Developer: 5 GB
+      - Viewer: 1 GB
+
+      ## Connection Guidelines
+
+      1. Use secure SFTP clients only
+      2. Strong passwords required
+      3. Regular password changes recommended
+      4. Monitor storage usage
+      5. Report suspicious activity
+
+  # File transfer logs simulation
+  - path: /logs/transfer.log
+    content: |
+      # SFTP Transfer Log - {{ .context.serverName }}
+      # Generated: {{ now }}
+
+      [{{ now }}] INFO: Server started - {{ .context.serverName }} v{{ .context.version }}
+      [{{ now }}] INFO: Listening on port 2223
+      [{{ now }}] INFO: Max connections: {{ .context.maxConnections }}
+
+      # Recent Transfer Activity
+      {{ range $i, $user := .context.users }}
+      [{{ $.context.version }}] LOGIN: User '{{ $user.username }}' connected from 192.168.1.{{ add 100 $i }}
+      [{{ $.context.version }}] TRANSFER: {{ $user.username }} uploaded 'project_{{ $i }}.zip' ({{ add 1024 (mul $i 512) }} KB)
+      [{{ $.context.version }}] TRANSFER: {{ $user.username }} downloaded 'document_{{ $i }}.pdf' ({{ add 256 (mul $i 128) }} KB)
+      {{ if ne $user.role "viewer" }}
+      [{{ $.context.version }}] MKDIR: {{ $user.username }} created directory '{{ $user.home_dir }}/new_folder_{{ $i }}'
+      {{ end }}
+      [{{ $.context.version }}] LOGOUT: User '{{ $user.username }}' disconnected
+
+      {{ end }}
+      [{{ now }}] INFO: Current active connections: {{ len .context.users }}
+      [{{ now }}] INFO: Total data transferred today: {{ add 5120 (len .context.users) }} MB
+      [{{ now }}] INFO: Server health: OPERATIONAL
+
+  # Sample project files
+  - path: /shared/projects/README.md
+    content: |
+      # Projects Workspace
+
+      This is the shared projects directory for development work.
+
+      ## Current Projects
+
+      ### UseKuro Development
+      - **Status**: Active
+      - **Lead**: Developer Team
+      - **Description**: Mock server development and testing
+      - **Last Updated**: {{ now }}
+
+      ### Protocol Testing
+      - **Status**: In Progress
+      - **Lead**: QA Team
+      - **Description**: Testing HTTP, TCP, WebSocket, and SFTP protocols
+      - **Last Updated**: {{ now }}
+
+      ### Documentation
+      - **Status**: Ongoing
+      - **Lead**: Tech Writers
+      - **Description**: User guides and API documentation
+      - **Last Updated**: {{ now }}
+
+      ## Guidelines
+
+      1. Create a folder for each project
+      2. Include a README.md in each project folder
+      3. Follow naming conventions: project_name_version
+      4. Regular backups are performed daily
+      5. Archive completed projects to /shared/archive
+
+      ## File Organization
+
+      ```
+      /shared/projects/
+      ├── usekuro-core/
+      │   ├── src/
+      │   ├── docs/
+      │   └── tests/
+      ├── protocol-tests/
+      │   ├── http/
+      │   ├── tcp/
+      │   ├── websocket/
+      │   └── sftp/
+      └── documentation/
+          ├── user-guides/
+          ├── api-docs/
+          └── tutorials/
+      ```
+
+      Contact: projects@usekuro.com
+
+  - path: /shared/projects/usekuro-core/project-info.txt
+    content: |
+      Project: UseKuro Core Development
+      ================================
+
+      Created: {{ now }}
+
+      ## Project Details
+      Name: UseKuro Core
+      Version: {{ .context.version }}
+      Type: Mock Server Framework
+      Language: Go
+
+      ## Team Members
+      {{ range .context.users }}
+      {{ if ne .role "viewer" }}
+      - {{ .username }} ({{ .role }})
+      {{ end }}
+      {{ end }}
+
+      ## Development Status
+      - Core Protocol Support: ✅ Complete
+      - HTTP/HTTPS Mocking: ✅ Complete
+      - TCP Socket Mocking: ✅ Complete
+      - WebSocket Support: ✅ Complete
+      - SFTP File Server: ✅ Complete
+      - Web Interface: ✅ Complete
+      - CLI Tools: ✅ Complete
+      - Documentation: 🔄 In Progress
+      - Testing Suite: 🔄 In Progress
+      - Performance Optimization: ⏳ Planned
+
+      ## Key Features Implemented
+      {{ range .context.features }}
+      - {{ . }}
+      {{ end }}
+
+      ## Recent Updates
+      - Added comprehensive SFTP support
+      - Enhanced WebSocket real-time features
+      - Improved security headers for HTTPS
+      - Added user workspace management
+      - Implemented auto-configuration system
+
+      ## Next Milestones
+      1. Performance benchmarking
+      2. Load testing framework
+      3. Plugin system architecture
+      4. Cloud deployment guides
+      5. Enterprise features
+
+  # Sample documents
+  - path: /shared/documents/getting-started.txt
+    content: |
+      Getting Started with {{ .context.serverName }}
+      =============================================
+
+      Welcome to the UseKuro SFTP Complete File Server!
+
+      ## Quick Start Guide
+
+      ### 1. Connect to the Server
+      ```bash
+      sftp -P 2223 usekuro@localhost
+      # Password: kuro123
+      ```
+
+      ### 2. Navigate the File System
+      ```bash
+      ls                    # List current directory
+      cd /shared/public     # Change to shared folder
+      pwd                   # Show current path
+      ```
+
+      ### 3. Upload Files
+      ```bash
+      put local-file.txt                    # Upload to current directory
+      put local-file.txt remote-name.txt    # Upload with new name
+      mput *.txt                           # Upload multiple files
+      ```
+
+      ### 4. Download Files
+      ```bash
+      get remote-file.txt                   # Download to local directory
+      get remote-file.txt local-name.txt    # Download with new name
+      mget *.pdf                           # Download multiple files
+      ```
+
+      ### 5. Directory Operations
+      ```bash
+      mkdir new-folder      # Create directory
+      rmdir empty-folder    # Remove empty directory
+      rm file.txt          # Remove file
+      chmod 755 file.txt   # Change permissions
+      ```
+
+      ## Available User Accounts
+
+      {{ range .context.users }}
+      **{{ .username }}** ({{ .role }})
+      - Home: {{ .home_dir }}
+      - Quota: {{ .quota_mb }} MB
+      - Permissions: {{ join .permissions ", " }}
+
+      {{ end }}
+
+      ## Shared Directories
+
+      {{ range .context.shared_folders }}
+      **{{ .path }}**
+      - {{ .description }}
+      - Owner: {{ .owner }}
+      - Size: {{ .size_mb }} MB
+
+      {{ end }}
+
+      ## File Type Restrictions
+
+      | Extension | Category | Max Size | Allowed |
+      |-----------|----------|----------|---------|
+      {{ range .context.file_types }}
+      | {{ .extension }} | {{ .category }} | {{ .max_size_mb }} MB | {{ .allowed }} |
+      {{ end }}
+
+      ## Support and Help
+
+      - Server Documentation: /docs/
+      - Transfer Logs: /logs/transfer.log
+      - Configuration: /config/server.conf
+      - Support Email: support@usekuro.com
+
+      Generated: {{ now }}
+
+  # Security and audit information
+  - path: /security/audit.log
+    content: |
+      # Security Audit Log - {{ .context.serverName }}
+      # Generated: {{ now }}
+
+      ## Security Configuration
+      Server: {{ .context.serverName }} v{{ .context.version }}
+      Port: 2223
+      Protocol: SFTP (SSH File Transfer Protocol)
+      Encryption: AES-256-CTR
+      MAC: HMAC-SHA2-256
+
+      ## Authentication Events
+      {{ range $i, $user := .context.users }}
+      [{{ $.context.version }}] AUTH_SUCCESS: {{ $user.username }} from 192.168.1.{{ add 100 $i }}
+      [{{ $.context.version }}] PERM_CHECK: {{ $user.username }} permissions validated: {{ join $user.permissions "," }}
+      [{{ $.context.version }}] QUOTA_CHECK: {{ $user.username }} quota: {{ $user.quota_mb }}MB used
+      {{ end }}
+
+      ## File Access Events
+      [{{ now }}] READ: admin accessed /config/server.conf
+      [{{ now }}] WRITE: developer uploaded to /shared/projects/
+      [{{ now }}] READ: readonly accessed /shared/documents/
+      [{{ now }}] DELETE: admin removed /tmp/old-file.txt
+      [{{ now }}] MKDIR: developer created /shared/projects/new-feature/
+
+      ## Security Checks
+      [{{ now }}] SCAN: All uploaded files scanned for malware - CLEAN
+      [{{ now }}] POLICY: File type restrictions enforced
+      [{{ now }}] QUOTA: Storage quotas monitored and enforced
+      [{{ now }}] CONN: {{ len .context.users }} active connections (max: {{ .context.maxConnections }})
+
+      ## System Health
+      [{{ now }}] STATUS: Server operational
+      [{{ now }}] DISK: Storage usage within limits
+      [{{ now }}] MEMORY: Server memory usage normal
+      [{{ now }}] NETWORK: Connection latency acceptable
+
+      ## Compliance
+      - Data encryption: AES-256-CTR ✅
+      - Access logging: Enabled ✅
+      - User authentication: Required ✅
+      - File permissions: Enforced ✅
+      - Audit trail: Complete ✅
+
+  # Sample backup script
+  - path: /scripts/backup.sh
+    content: |
+      #!/bin/bash
+      # {{ .context.serverName }} Backup Script
+      # Generated: {{ now }}
+
+      echo "🔄 Starting backup process..."
+      echo "Server: {{ .context.serverName }} v{{ .context.version }}"
+      echo "Timestamp: {{ now }}"
+
+      # Configuration
+      BACKUP_DIR="/backups/$(date +%Y%m%d_%H%M%S)"
+      SOURCE_DIRS=(
+          "/shared/public"
+          "/shared/projects"
+          "/shared/documents"
+          "/config"
+          "/logs"
+      )
+
+      # Create backup directory
+      echo "📁 Creating backup directory: $BACKUP_DIR"
+      mkdir -p "$BACKUP_DIR"
+
+      # Backup shared folders
+      for dir in "${SOURCE_DIRS[@]}"; do
+          if [ -d "$dir" ]; then
+              echo "📦 Backing up: $dir"
+              cp -r "$dir" "$BACKUP_DIR/"
+              echo "✅ Completed: $dir"
+          else
+              echo "⚠️  Directory not found: $dir"
+          fi
+      done
+
+      # Backup user home directories
+      {{ range .context.users }}
+      if [ -d "{{ .home_dir }}" ]; then
+          echo "👤 Backing up user: {{ .username }}"
+          cp -r "{{ .home_dir }}" "$BACKUP_DIR/home_{{ .username }}"
+          echo "✅ User backup completed: {{ .username }}"
+      fi
+      {{ end }}
+
+      # Create manifest
+      echo "📋 Creating backup manifest..."
+      cat > "$BACKUP_DIR/manifest.txt" << EOF
+      Backup Manifest
+      ===============
+      Server: {{ .context.serverName }} v{{ .context.version }}
+      Created: {{ now }}
+      Type: Full System Backup
+
+      Directories Backed Up:
+      {{ range .context.shared_folders }}
+      - {{ .path }} ({{ .size_mb }} MB)
+      {{ end }}
+
+      User Directories:
+      {{ range .context.users }}
+      - {{ .home_dir }} ({{ .username }} - {{ .quota_mb }} MB quota)
+      {{ end }}
+
+      Configuration Files:
+      - /config/server.conf
+      - /security/audit.log
+      - /logs/transfer.log
+
+      Status: ✅ COMPLETED
+      EOF
+
+      # Calculate backup size
+      BACKUP_SIZE=$(du -sh "$BACKUP_DIR" | cut -f1)
+      echo "📊 Backup size: $BACKUP_SIZE"
+      echo "✅ Backup completed successfully!"
+      echo "📍 Location: $BACKUP_DIR"
+
+      # Cleanup old backups (keep last 7 days)
+      find /backups -type d -name "*_*" -mtime +7 -exec rm -rf {} \;
+      echo "🧹 Cleaned up old backups"
+
+      echo "🎉 Backup process finished at $(date)"
+
+  # Server statistics
+  - path: /stats/server-stats.json
+    content: |
+      {
+        "server_info": {
+          "name": "{{ .context.serverName }}",
+          "version": "{{ .context.version }}",
+          "protocol": "SFTP",
+          "port": 2223,
+          "max_connections": {{ .context.maxConnections }},
+          "uptime": "{{ now }}",
+          "status": "operational"
+        },
+        "user_statistics": {
+          "total_users": {{ len .context.users }},
+          "user_breakdown": {
+            {{ range $i, $user := .context.users }}
+            "{{ $user.role }}": {
+              "username": "{{ $user.username }}",
+              "home_directory": "{{ $user.home_dir }}",
+              "quota_mb": {{ $user.quota_mb }},
+              "permissions": {{ toJson $user.permissions }},
+              "last_login": "{{ $user.last_login }}"
+            }{{ if not (eq $i (sub (len $.context.users) 1)) }},{{ end }}
+            {{ end }}
+          }
+        },
+        "storage_info": {
+          "shared_folders": [
+            {{ range $i, $folder := .context.shared_folders }}
+            {
+              "name": "{{ $folder.name }}",
+              "path": "{{ $folder.path }}",
+              "size_mb": {{ $folder.size_mb }},
+              "owner": "{{ $folder.owner }}",
+              "permissions": "{{ $folder.permissions }}",
+              "description": "{{ $folder.description }}"
+            }{{ if not (eq $i (sub (len $.context.shared_folders) 1)) }},{{ end }}
+            {{ end }}
+          ],
+          "total_storage_mb": {{ add 1024 2048 512 }},
+          "used_storage_mb": {{ add 512 1024 256 }},
+          "available_storage_mb": {{ sub (add 1024 2048 512) (add 512 1024 256) }}
+        },
+        "file_types": {
+          "allowed_extensions": [
+            {{ range $i, $type := .context.file_types }}
+            {{ if $type.allowed }}
+            {
+              "extension": "{{ $type.extension }}",
+              "category": "{{ $type.category }}",
+              "max_size_mb": {{ $type.max_size_mb }}
+            }{{ if not (eq $i (sub (len $.context.file_types) 1)) }},{{ end }}
+            {{ end }}
+            {{ end }}
+          ],
+          "blocked_extensions": [
+            {{ range $i, $type := .context.file_types }}
+            {{ if not $type.allowed }}
+            {
+              "extension": "{{ $type.extension }}",
+              "category": "{{ $type.category }}",
+              "reason": "Security policy"
+            }{{ if not (eq $i (sub (len $.context.file_types) 1)) }},{{ end }}
+            {{ end }}
+            {{ end }}
+          ]
+        },
+        "security": {
+          "encryption": "AES-256-CTR",
+          "authentication": "password+publickey",
+          "audit_logging": true,
+          "file_scanning": true,
+          "quota_enforcement": true
+        },
+        "performance": {
+          "active_connections": {{ len .context.users }},
+          "total_files": {{ add 50 (len .context.users) }},
+          "total_directories": {{ add 20 (len .context.shared_folders) }},
+          "transfer_rate_mbps": {{ add 10 (len .context.users) }},
+          "avg_latency_ms": {{ add 15 (len .context.users) }}
+        },
+        "generated_at": "{{ now }}"
+      }

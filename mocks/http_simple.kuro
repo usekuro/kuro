@@ -1,0 +1,80 @@
+protocol: http
+port: 8080
+meta:
+  name: "Simple HTTP Mock"
+  description: "Basic HTTP mock for testing and debugging"
+
+context:
+  variables:
+    version: "1.0.0"
+    env: "test"
+
+routes:
+  - path: /hello
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: "application/json"
+        X-Mock: "UseKuro-Simple"
+      body: |
+        {
+          "message": "Hello World!",
+          "timestamp": "{{ now }}",
+          "version": "{{ .context.version }}",
+          "environment": "{{ .context.env }}"
+        }
+
+  - path: /hello
+    method: POST
+    response:
+      status: 200
+      headers:
+        Content-Type: "application/json"
+        X-Mock: "UseKuro-Simple"
+      body: |
+        {
+          "message": "Hello {{ default .input.name "Anonymous" }}!",
+          "timestamp": "{{ now }}",
+          "received": {{ toJSON .input }}
+        }
+
+  - path: /status
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: "application/json"
+      body: |
+        {
+          "status": "ok",
+          "uptime": "{{ now }}",
+          "mock": "Simple HTTP Mock",
+          "version": "{{ .context.version }}"
+        }
+
+  - path: /error
+    method: GET
+    response:
+      status: 500
+      headers:
+        Content-Type: "application/json"
+      body: |
+        {
+          "error": "Simulated server error",
+          "timestamp": "{{ now }}",
+          "code": 500
+        }
+
+  - path: /slow
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: "application/json"
+      body: |
+        {
+          "message": "This is a slow response",
+          "timestamp": "{{ now }}",
+          "delay": "simulated"
+        }
