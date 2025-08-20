@@ -1,0 +1,190 @@
+name: Feature Request
+description: Suggest a new feature or improvement for UseKuro
+title: "[Feature]: "
+labels: ["enhancement", "needs-review"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! 🐱✨
+
+        Your ideas help make UseKuro better for everyone. Please provide as much detail as possible about your feature request.
+
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature Type
+      description: What type of feature are you requesting?
+      options:
+        - New Protocol Support
+        - Template Engine Enhancement
+        - Web UI Improvement
+        - CLI Enhancement
+        - Performance Optimization
+        - Documentation Improvement
+        - Developer Experience
+        - Integration/Plugin
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? What use case does it address?
+      placeholder: |
+        Example: Currently, UseKuro doesn't support gRPC protocol mocking, which makes it difficult to test microservices that communicate via gRPC. This limits adoption in modern cloud-native environments.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your ideal solution. How should this feature work?
+      placeholder: |
+        Example: Add gRPC protocol support with:
+        - Protocol definition in .kuro files
+        - Support for unary and streaming RPCs
+        - Proto file imports
+        - Dynamic response generation based on request data
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: Have you considered any alternative approaches or workarounds?
+      placeholder: |
+        Example:
+        - Using existing HTTP mocking with REST-to-gRPC gateway
+        - Third-party gRPC mocking tools (but they lack UseKuro's template flexibility)
+    validations:
+      required: false
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Usage Examples
+      description: Show how users would interact with this feature
+      render: yaml
+      placeholder: |
+        # Example .kuro file for your feature
+        protocol: grpc
+        port: 9090
+        protoFiles:
+          - "./protos/user_service.proto"
+
+        services:
+          - service: UserService
+            methods:
+              - name: GetUser
+                response:
+                  user:
+                    id: "{{ .input.user_id }}"
+                    name: "{{ .input.name | default "Anonymous" }}"
+    validations:
+      required: false
+
+  - type: textarea
+    id: benefits
+    attributes:
+      label: Benefits
+      description: What are the key benefits of implementing this feature?
+      placeholder: |
+        - Enables testing of gRPC-based microservices
+        - Reduces development setup complexity
+        - Improves UseKuro's competitiveness vs other tools
+        - Addresses community requests from issues #123, #456
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Critical - Blocking my project
+        - High - Would significantly improve my workflow
+        - Medium - Nice to have improvement
+        - Low - Minor enhancement
+    validations:
+      required: true
+
+  - type: input
+    id: affected-users
+    attributes:
+      label: Affected Users
+      description: Who would benefit from this feature?
+      placeholder: "gRPC developers, microservice teams, cloud-native projects"
+    validations:
+      required: false
+
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: Implementation Notes
+      description: Any technical details, constraints, or implementation ideas?
+      placeholder: |
+        Technical considerations:
+        - Could use grpc-go library
+        - Need proto file parsing
+        - Template integration for dynamic responses
+        - Consider backward compatibility
+    validations:
+      required: false
+
+  - type: textarea
+    id: related-work
+    attributes:
+      label: Related Work
+      description: Are there similar features in other tools? Any relevant research or examples?
+      placeholder: |
+        Similar features:
+        - Postman's gRPC support
+        - grpcurl for testing
+        - Mock servers like WireMock
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution Interest
+      description: Would you be interested in contributing to this feature?
+      options:
+        - label: I'm willing to implement this feature myself
+        - label: I can help with testing and feedback
+        - label: I can provide domain expertise
+        - label: I can help with documentation
+        - label: I prefer to leave implementation to the maintainers
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have searched existing issues and discussions for similar requests
+          required: true
+        - label: I have provided a clear problem statement and proposed solution
+          required: true
+        - label: I have considered the impact on existing users
+          required: true
+        - label: I have included concrete examples where possible
+          required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+
+        **Thank you for your feature request!** 🚀
+
+        Our team will review your suggestion and provide feedback. Popular requests with clear use cases and good community support are more likely to be prioritized.
+
+        Join our [Discord](https://discord.gg/usekuro) to discuss this feature with other users and contributors!
