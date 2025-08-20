@@ -1,0 +1,566 @@
+protocol: sftp
+port: 2222
+meta:
+  name: "SFTP Development Server"
+  description: "Complete SFTP server with project structure, configuration files and test data"
+
+sftpAuth:
+  username: "developer"
+  password: "dev123"
+
+context:
+  variables:
+    projectName: "UseKuro"
+    version: "1.0.0"
+    environment: "development"
+    buildTime: "{{ now }}"
+    developers:
+      - name: "Alice"
+        role: "Backend Developer"
+        email: "alice@usekuro.com"
+      - name: "Bob"
+        role: "Frontend Developer"
+        email: "bob@usekuro.com"
+      - name: "Charlie"
+        role: "DevOps Engineer"
+        email: "charlie@usekuro.com"
+    databases:
+      - name: "users"
+        type: "postgresql"
+        host: "localhost"
+        port: 5432
+      - name: "analytics"
+        type: "mongodb"
+        host: "localhost"
+        port: 27017
+    services:
+      - name: "api-gateway"
+        port: 8080
+        status: "running"
+      - name: "user-service"
+        port: 8081
+        status: "running"
+      - name: "notification-service"
+        port: 8082
+        status: "stopped"
+
+files:
+  # Main README file
+  - path: /README.md
+    content: |
+      # {{ .context.projectName }}
+
+      **Versión:** {{ .context.version }}
+      **Entorno:** {{ .context.environment }}
+      **Construido:** {{ .context.buildTime }}
+
+      ## Description
+
+      UseKuro is a revolutionary tool for simulating network protocols without programming. It allows creating complex mocks using declarative `.kuro` files with embedded Go templates.
+
+      ## Features
+
+      - 🚀 HTTP, TCP, WebSocket and SFTP simulation
+      - 🎯 Go Templates in any field
+      - 📦 Self-contained and shareable .kuro files
+      - ⚡ Powerful and easy-to-use CLI
+      - 🔧 Custom functions and shared libraries
+
+      ## Development Team
+
+      {{ range .context.developers }}
+      - **{{ .name }}** - {{ .role }} ({{ .email }})
+      {{ end }}
+
+      ## Quick Start
+
+      ```bash
+      # Run a mock
+      usekuro run example.kuro
+
+      # Validate file
+      usekuro validate example.kuro
+
+      # Share mock
+      usekuro share example.kuro --public
+      ```
+
+      ## Documentation
+
+      Visit [usekuro.com](https://usekuro.com) for complete documentation.
+
+  # Application configuration
+  - path: /config/app.yaml
+    content: |
+      # {{ .context.projectName }} Configuration
+      name: {{ .context.projectName }}
+      version: {{ .context.version }}
+      environment: {{ .context.environment }}
+
+      server:
+        host: 0.0.0.0
+        port: 8080
+        timeout: 30s
+
+      database:
+        {{ range .context.databases }}
+        {{ .name }}:
+          type: {{ .type }}
+          host: {{ .host }}
+          port: {{ .port }}
+          ssl: {{ if eq .type "postgresql" }}require{{ else }}false{{ end }}
+        {{ end }}
+
+      logging:
+        level: debug
+        format: json
+        output: stdout
+
+      features:
+        enable_metrics: true
+        enable_tracing: true
+        enable_profiling: {{ if eq .context.environment "development" }}true{{ else }}false{{ end }}
+
+  # Variables de entorno
+  - path: /config/.env
+    content: |
+      # Variables de entorno para {{ .context.projectName }}
+      NODE_ENV={{ .context.environment }}
+      APP_VERSION={{ .context.version }}
+
+      # Base de datos
+      {{ range .context.databases }}
+      {{ upper .name }}_HOST={{ .host }}
+      {{ upper .name }}_PORT={{ .port }}
+      {{ upper .name }}_USER=admin
+      {{ upper .name }}_PASS=secret123
+      {{ end }}
+
+      # Servicios
+      {{ range .context.services }}
+      {{ upper (replace .name "-" "_") }}_PORT={{ .port }}
+      {{ upper (replace .name "-" "_") }}_STATUS={{ .status }}
+      {{ end }}
+
+      # Claves API
+      JWT_SECRET={{ uuid }}
+      API_KEY={{ uuid }}
+      WEBHOOK_SECRET={{ uuid }}
+
+      # URLs externas
+      REDIS_URL=redis://localhost:6379
+      ELASTICSEARCH_URL=http://localhost:9200
+
+      # Email configuration
+      SMTP_HOST=smtp.gmail.com
+      SMTP_PORT=587
+      SMTP_USER=noreply@usekuro.com
+      SMTP_PASS=email_password_here
+
+  # Docker Compose for development
+  - path: /docker-compose.yml
+    content: |
+      version: '3.8'
+
+      services:
+        {{ range .context.services }}
+        {{ .name }}:
+          image: {{ $.context.projectName }}/{{ .name }}:{{ $.context.version }}
+          ports:
+            - "{{ .port }}:{{ .port }}"
+          environment:
+            - NODE_ENV={{ $.context.environment }}
+          {{ if eq .status "running" }}
+          restart: always
+          {{ else }}
+          restart: "no"
+          {{ end }}
+          networks:
+            - usekuro-network
+        {{ end }}
+
+        {{ range .context.databases }}
+        {{ .name }}:
+          {{ if eq .type "postgresql" }}
+          image: postgres:15
+          environment:
+            POSTGRES_DB: {{ .name }}
+            POSTGRES_USER: admin
+            POSTGRES_PASSWORD: secret123
+          {{ else if eq .type "mongodb" }}
+          image: mongo:6
+          environment:
+            MONGO_INITDB_ROOT_USERNAME: admin
+            MONGO_INITDB_ROOT_PASSWORD: secret123
+          {{ end }}
+          ports:
+            - "{{ .port }}:{{ .port }}"
+          volumes:
+            - {{ .name }}_data:/var/lib/{{ if eq .type "postgresql" }}postgresql/data{{ else }}mongodb{{ end }}
+          networks:
+            - usekuro-network
+        {{ end }}
+
+      volumes:
+        {{ range .context.databases }}
+        {{ .name }}_data:
+        {{ end }}
+
+      networks:
+        usekuro-network:
+          driver: bridge
+
+  # Makefile for automation
+  - path: /Makefile
+    content: |
+      # Makefile for {{ .context.projectName }}
+      .PHONY: help build test run clean deploy
+
+      APP_NAME={{ .context.projectName }}
+      VERSION={{ .context.version }}
+      BUILD_TIME={{ .context.buildTime }}
+
+      help: ## Show this help
+      	@echo "Available commands for $(APP_NAME) v$(VERSION):"
+      	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+      build: ## Build the application
+      	@echo "🔨 Building $(APP_NAME) v$(VERSION)..."
+      	go build -ldflags "-X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME)" -o bin/usekuro cmd/usekuro/main.go
+      	@echo "✅ Build completed"
+
+      test: ## Run tests
+      	@echo "🧪 Running tests..."
+      	go test -v ./...
+      	@echo "✅ Tests completed"
+
+      run: ## Run the application
+      	@echo "🚀 Starting $(APP_NAME)..."
+      	./bin/usekuro run examples/http_api.kuro
+
+      clean: ## Clean generated files
+      	@echo "🧹 Cleaning..."
+      	rm -rf bin/ dist/ *.log
+      	@echo "✅ Cleanup completed"
+
+      deploy: ## Deploy application
+      	@echo "🚀 Deploying $(APP_NAME) v$(VERSION)..."
+      	docker build -t $(APP_NAME):$(VERSION) .
+      	docker push $(APP_NAME):$(VERSION)
+      	@echo "✅ Deployment completed"
+
+      dev: ## Development mode
+      	@echo "💻 Starting development mode..."
+      	docker-compose up -d
+      	go run cmd/usekuro/main.go run examples/websocket_realtime.kuro
+
+      logs: ## View logs
+      	docker-compose logs -f
+
+      status: ## Service status
+      	@echo "📊 Service status:"
+      	{{ range .context.services }}
+      	@echo "  {{ .name }}: {{ .status }}"
+      	{{ end }}
+
+  # CI/CD configuration file
+  - path: /.github/workflows/ci.yml
+    content: |
+      name: CI/CD Pipeline
+
+      on:
+        push:
+          branches: [ main, develop ]
+        pull_request:
+          branches: [ main ]
+
+      env:
+        APP_NAME: {{ .context.projectName }}
+        VERSION: {{ .context.version }}
+
+      jobs:
+        test:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v3
+
+            - name: Setup Go
+              uses: actions/setup-go@v3
+              with:
+                go-version: '1.21'
+
+            - name: Cache dependencies
+              uses: actions/cache@v3
+              with:
+                path: ~/go/pkg/mod
+                key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+            - name: Install dependencies
+              run: go mod download
+
+            - name: Run tests
+              run: |
+                go test -v -race -coverprofile=coverage.out ./...
+                go tool cover -html=coverage.out -o coverage.html
+
+            - name: Upload coverage
+              uses: actions/upload-artifact@v3
+              with:
+                name: coverage-report
+                path: coverage.html
+
+        build:
+          needs: test
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v3
+
+            - name: Setup Go
+              uses: actions/setup-go@v3
+              with:
+                go-version: '1.21'
+
+            - name: Build application
+              run: |
+                make build
+                chmod +x bin/usekuro
+
+            - name: Upload binary
+              uses: actions/upload-artifact@v3
+              with:
+                name: usekuro-binary
+                path: bin/usekuro
+
+  # Test data in JSON
+  - path: /data/sample_users.json
+    content: |
+      {
+        "users": [
+          {{ range $i, $dev := .context.developers }}
+          {
+            "id": {{ add $i 1 }},
+            "name": "{{ $dev.name }}",
+            "email": "{{ $dev.email }}",
+            "role": "{{ $dev.role }}",
+            "created_at": "{{ now }}",
+            "active": true,
+            "preferences": {
+              "theme": "dark",
+              "notifications": true,
+              "language": "es"
+            }
+          }{{ if not (eq $i (sub (len $.context.developers) 1)) }},{{ end }}
+          {{ end }}
+        ],
+        "total": {{ len .context.developers }},
+        "generated_at": "{{ now }}"
+      }
+
+  # Database configuration
+  - path: /data/database_schema.sql
+    content: |
+      -- Database schema for {{ .context.projectName }}
+      -- Generated: {{ .context.buildTime }}
+
+      -- Users table
+      CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          role VARCHAR(100) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Sessions table
+      CREATE TABLE sessions (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id INTEGER REFERENCES users(id),
+          token VARCHAR(255) NOT NULL,
+          expires_at TIMESTAMP NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Activity logs table
+      CREATE TABLE activity_logs (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES users(id),
+          action VARCHAR(255) NOT NULL,
+          resource VARCHAR(255),
+          ip_address INET,
+          user_agent TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Insert test data
+      {{ range $i, $dev := .context.developers }}
+      INSERT INTO users (name, email, role) VALUES
+          ('{{ $dev.name }}', '{{ $dev.email }}', '{{ $dev.role }}');
+      {{ end }}
+
+      -- Performance indexes
+      CREATE INDEX idx_users_email ON users(email);
+      CREATE INDEX idx_sessions_token ON sessions(token);
+      CREATE INDEX idx_sessions_expires ON sessions(expires_at);
+      CREATE INDEX idx_logs_user_id ON activity_logs(user_id);
+      CREATE INDEX idx_logs_created_at ON activity_logs(created_at);
+
+  # Example log file
+  - path: /logs/app.log
+    content: |
+      {{ now }} [INFO] {{ .context.projectName }} v{{ .context.version }} started
+      {{ now }} [INFO] HTTP server listening on port 8080
+      {{ now }} [INFO] Database connection established
+      {{ range .context.services }}
+      {{ $.context.buildTime }} [INFO] Servicio {{ .name }} {{ .status }} en puerto {{ .port }}
+      {{ end }}
+      {{ now }} [DEBUG] Configuration loaded from /config/app.yaml
+      {{ now }} [INFO] Metrics enabled on /metrics
+      {{ now }} [INFO] Health check disponible en /health
+      {{ now }} [WARN] notification-service is not running
+      {{ now }} [INFO] System ready to receive requests
+
+  # API documentation
+  - path: /docs/api.md
+    content: |
+      # API Documentation - {{ .context.projectName }}
+
+      **Versión:** {{ .context.version }}
+      **Entorno:** {{ .context.environment }}
+
+      ## Available Endpoints
+
+      ### Health Check
+      ```
+      GET /health
+      ```
+      Retorna el estado del sistema.
+
+      ### Usuarios
+      ```
+      GET /api/v1/users
+      POST /api/v1/users
+      GET /api/v1/users/{id}
+      PUT /api/v1/users/{id}
+      DELETE /api/v1/users/{id}
+      ```
+
+      ### Authentication
+      ```
+      POST /api/v1/auth/login
+      POST /api/v1/auth/logout
+      POST /api/v1/auth/refresh
+      ```
+
+      ## Services
+
+      {{ range .context.services }}
+      ### {{ .name }}
+      - **Port:** {{ .port }}
+      - **Status:** {{ .status }}
+      - **URL:** http://localhost:{{ .port }}
+      {{ end }}
+
+      ## Databases
+
+      {{ range .context.databases }}
+      ### {{ .name }}
+      - **Type:** {{ .type }}
+      - **Host:** {{ .host }}
+      - **Port:** {{ .port }}
+      {{ end }}
+
+      ## Usage Examples
+
+      ```bash
+      # Get all users
+      curl http://localhost:8080/api/v1/users
+
+      # Create a new user
+      curl -X POST http://localhost:8080/api/v1/users \
+        -H "Content-Type: application/json" \
+        -d '{"name": "New User", "email": "new@example.com"}'
+
+      # Login
+      curl -X POST http://localhost:8080/api/v1/auth/login \
+        -H "Content-Type: application/json" \
+        -d '{"email": "alice@usekuro.com", "password": "password123"}'
+      ```
+
+  # Utility scripts
+  - path: /scripts/setup.sh
+    content: |
+      #!/bin/bash
+      # Setup script for {{ .context.projectName }}
+
+      set -e
+
+      echo "🚀 Setting up {{ .context.projectName }} v{{ .context.version }}"
+
+      # Create necessary directories
+      mkdir -p bin logs data/backups
+
+      # Install dependencies
+      echo "📦 Installing dependencies..."
+      go mod download
+      go mod tidy
+
+      # Build application
+      echo "🔨 Building application..."
+      make build
+
+      # Setup database
+      echo "🗄️ Setting up database..."
+      {{ range .context.databases }}
+      {{ if eq .type "postgresql" }}
+      createdb {{ .name }} || echo "Database {{ .name }} already exists"
+      psql {{ .name }} < data/database_schema.sql
+      {{ end }}
+      {{ end }}
+
+      # Start services
+      echo "🔧 Starting services..."
+      docker-compose up -d
+
+      echo "✅ Setup completed!"
+      echo "🎯 Run 'make run' to start the application"
+
+  # Git configuration file
+  - path: /.gitignore
+    content: |
+      # Binarios
+      bin/
+      dist/
+      *.exe
+
+      # Logs
+      *.log
+      logs/
+
+      # Dependencias
+      node_modules/
+      vendor/
+
+      # Configuración local
+      .env.local
+      config/local.yaml
+
+      # IDEs
+      .vscode/
+      .idea/
+      *.swp
+      *.swo
+
+      # OS
+      .DS_Store
+      Thumbs.db
+
+      # Temporales
+      *.tmp
+      *.temp
+      .cache/
+
+      # Datos sensibles
+      *.key
+      *.pem
+      secrets/

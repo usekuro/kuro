@@ -1,0 +1,216 @@
+protocol: tcp
+port: 9090
+meta:
+  name: "TCP Chat Server"
+  description: "Advanced TCP chat server with commands and rooms"
+
+session:
+  timeout: 30s
+
+context:
+  variables:
+    serverName: "UseKuro Chat"
+    version: "1.0.0"
+    maxUsers: 100
+    rooms:
+      - name: "general"
+        topic: "General conversation"
+      - name: "tech"
+        topic: "Technical discussions"
+      - name: "random"
+        topic: "Random topics"
+    commands:
+      - name: "HELP"
+        description: "Show help"
+      - name: "JOIN"
+        description: "Join a room"
+      - name: "LIST"
+        description: "List available rooms"
+      - name: "WHO"
+        description: "List connected users"
+      - name: "MSG"
+        description: "Send private message"
+      - name: "QUIT"
+        description: "Exit server"
+
+onMessage:
+  match: "(?P<cmd>\\w+)(?:\\s+(?P<args>.*))?\\s*"
+  conditions:
+    # HELP command - Show help
+    - if: '{{ eq .cmd "HELP" }}'
+      respond: |
+        === {{ .context.serverName }} v{{ .context.version }} ===
+        Available commands:
+        {{ range .context.commands }}
+        {{ .name }} - {{ .description }}
+        {{ end }}
+
+        Usage:
+        JOIN <room> - Join a room
+        MSG <user> <message> - Private message
+        LIST - Show available rooms
+        WHO - Show connected users
+        QUIT - Exit server
+
+    # JOIN command - Join a room
+    - if: '{{ eq .cmd "JOIN" }}'
+      respond: |
+        {{ $room := .args }}
+        {{ if $room }}
+        You joined room: {{ $room }}
+        Welcome! Type your message or use HELP to see commands.
+        {{ else }}
+        Error: Specify a room. Use LIST to see available rooms.
+        {{ end }}
+
+    # LIST command - List rooms
+    - if: '{{ eq .cmd "LIST" }}'
+      respond: |
+        === Available Rooms ===
+        {{ range .context.rooms }}
+        📍 {{ .name }} - {{ .topic }}
+        {{ end }}
+
+        Total: {{ len .context.rooms }} rooms
+        Use: JOIN <room_name> to join
+
+    # WHO command - Connected users
+    - if: '{{ eq .cmd "WHO" }}'
+      respond: |
+        === Connected Users ===
+        👤 User_{{ uuid | slice 0 8 }} (you)
+        👤 Alice_{{ uuid | slice 0 8 }}
+        👤 Bob_{{ uuid | slice 0 8 }}
+
+        Total: 3 connected users
+        Maximum: {{ .context.maxUsers }} users
+
+    # MSG command - Private message
+    - if: '{{ eq .cmd "MSG" }}'
+      respond: |
+        {{ $parts := split .args " " }}
+        {{ if ge (len $parts) 2 }}
+        {{ $user := index $parts 0 }}
+        {{ $message := join (slice $parts 1) " " }}
+        [PRIVATE to {{ $user }}]: {{ $message }}
+        Message sent to {{ $user }} - {{ now }}
+        {{ else }}
+        Error: Correct usage: MSG <user> <message>
+        {{ end }}
+
+    # SAY command - Send message to room
+    - if: '{{ eq .cmd "SAY" }}'
+      respond: |
+        [general] <User_{{ uuid | slice 0 8 }}>: {{ .args }}
+        Message sent - {{ now }}
+
+    # INFO command - Server information
+    - if: '{{ eq .cmd "INFO" }}'
+      respond: |
+        === Server Information ===
+        Name: {{ .context.serverName }}
+        Version: {{ .context.version }}
+        Port: 9090
+        Uptime: {{ now }}
+        Max users: {{ .context.maxUsers }}
+        Available rooms: {{ len .context.rooms }}
+
+        Status: ✅ ONLINE
+
+    # PING command - Connectivity test
+    - if: '{{ eq .cmd "PING" }}'
+      respond: |
+        PONG - {{ now }}
+        Latency: ~{{ add (mod (unix now) 100) 10 }}ms
+        Server: {{ .context.serverName }}
+
+    # TIME command - Server time
+    - if: '{{ eq .cmd "TIME" }}'
+      respond: |
+        🕐 Server time: {{ now }}
+        Timezone: UTC
+        Timestamp: {{ unix now }}
+
+    # STATS command - Statistics
+    - if: '{{ eq .cmd "STATS" }}'
+      respond: |
+        === Server Statistics ===
+        📊 Connected users: 3
+        📊 Active rooms: {{ len .context.rooms }}
+        📊 Messages sent today: {{ add (mod (unix now) 1000) 150 }}
+        📊 Uptime: {{ add (mod (unix now) 24) 1 }}h
+        📊 Memory used: {{ add (mod (unix now) 50) 25 }}MB
+
+    # MOTD command - Message of the day
+    - if: '{{ eq .cmd "MOTD" }}'
+      respond: |
+        🎯 === MESSAGE OF THE DAY ===
+
+        Welcome to {{ .context.serverName }}!
+
+        🚀 UseKuro simulates protocols like a master
+        🔥 No programming required
+        ⚡ Flexible, powerful and shareable
+
+        Enjoy your chat experience!
+
+        --- Generated: {{ now }} ---
+
+    # QUIT command - Exit
+    - if: '{{ eq .cmd "QUIT" }}'
+      respond: |
+        👋 Goodbye!
+        Disconnecting from {{ .context.serverName }}...
+        Thanks for using UseKuro Chat.
+
+        Connection closed - {{ now }}
+
+    # ROOMS command - Detailed room information
+    - if: '{{ eq .cmd "ROOMS" }}'
+      respond: |
+        === Detailed Room Information ===
+        {{ range $i, $room := .context.rooms }}
+
+        🏠 Room {{ add $i 1 }}: {{ $room.name }}
+        📝 Topic: {{ $room.topic }}
+        👥 Users: {{ add (mod (unix now) 10) 1 }}
+        🕐 Created: {{ add (mod (unix now) 30) 1 }} days ago
+        {{ end }}
+
+        Use JOIN <room> to join any room
+
+    # NICK command - Change nickname (simulated)
+    - if: '{{ eq .cmd "NICK" }}'
+      respond: |
+        {{ if .args }}
+        ✅ Nickname changed to: {{ .args }}
+        You are now known as {{ .args }}_{{ uuid | slice 0 6 }}
+        {{ else }}
+        Error: Specify a nickname. Usage: NICK <new_name>
+        {{ end }}
+
+    # WHISPER command - Alias for MSG
+    - if: '{{ eq .cmd "WHISPER" }}'
+      respond: |
+        {{ $parts := split .args " " }}
+        {{ if ge (len $parts) 2 }}
+        {{ $user := index $parts 0 }}
+        {{ $message := join (slice $parts 1) " " }}
+        🤫 [WHISPER to {{ $user }}]: {{ $message }}
+        Private message sent - {{ now }}
+        {{ else }}
+        Error: Usage: WHISPER <user> <message>
+        {{ end }}
+
+  # Default response for unrecognized commands
+  else: |
+    ❌ Unknown command: {{ .cmd }}
+
+    💡 Available commands:
+    HELP, JOIN, LIST, WHO, MSG, SAY, INFO, PING, TIME, STATS, MOTD, QUIT
+
+    Type HELP for detailed help.
+
+    {{ if .args }}
+    Arguments received: {{ .args }}
+    {{ end }}

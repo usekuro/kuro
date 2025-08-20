@@ -1,0 +1,96 @@
+protocol: sftp
+port: 2222
+
+meta:
+  name: "Enhanced SFTP Server"
+  description: "SFTP server with predefined files and directories for testing file operations"
+
+sftpAuth:
+  username: "usekuro"
+  password: "kuro123"
+
+files:
+  - path: "/welcome.txt"
+    content: |
+      Welcome to UseKuro SFTP Server!
+
+      This is a mock SFTP server for testing and development purposes.
+      You can upload, download, and manage files here.
+
+      Default credentials:
+      - Username: usekuro
+      - Password: kuro123
+
+      Happy testing!
+
+  - path: "/data/config.json"
+    content: |
+      {
+        "server": "usekuro-sftp",
+        "version": "1.0.0",
+        "environment": "development",
+        "features": [
+          "file-upload",
+          "file-download",
+          "directory-listing",
+          "file-deletion"
+        ],
+        "limits": {
+          "max_file_size": "100MB",
+          "max_files": 1000,
+          "concurrent_connections": 10
+        }
+      }
+
+  - path: "/data/sample.csv"
+    content: |
+      id,name,email,status
+      1,John Doe,john@example.com,active
+      2,Jane Smith,jane@example.com,active
+      3,Bob Wilson,bob@example.com,inactive
+      4,Alice Brown,alice@example.com,active
+      5,Charlie Davis,charlie@example.com,pending
+
+  - path: "/logs/server.log"
+    content: |
+      2024-01-01 00:00:00 [INFO] SFTP Server started
+      2024-01-01 00:01:00 [INFO] User 'usekuro' connected
+      2024-01-01 00:02:00 [INFO] File upload: /data/test.txt
+      2024-01-01 00:03:00 [INFO] File download: /welcome.txt
+      2024-01-01 00:04:00 [INFO] Directory listing: /data
+      2024-01-01 00:05:00 [INFO] User 'usekuro' disconnected
+
+  - path: "/uploads/readme.md"
+    content: |
+      # Upload Directory
+
+      This directory is for file uploads. You can test uploading files here.
+
+      ## Supported Operations
+
+      - PUT: Upload new files
+      - GET: Download existing files
+      - LIST: View directory contents
+      - DELETE: Remove files (if permissions allow)
+
+      ## File Types
+
+      All file types are supported:
+      - Documents (.txt, .pdf, .doc)
+      - Images (.jpg, .png, .gif)
+      - Data files (.json, .csv, .xml)
+      - Archives (.zip, .tar.gz)
+
+  - path: "/temp/.gitkeep"
+    content: |
+      This directory is for temporary files.
+
+session:
+  timeout: "30m"
+
+context:
+  variables:
+    server_name: "UseKuro SFTP Mock"
+    max_connections: 10
+    upload_path: "/uploads"
+    log_level: "INFO"

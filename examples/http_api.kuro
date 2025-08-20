@@ -1,0 +1,352 @@
+protocol: http
+port: 8080
+meta:
+  name: "E-Commerce API"
+  description: "Complete e-commerce REST API simulation with products, users and orders"
+
+context:
+  variables:
+    apiVersion: "v2"
+    products:
+      - id: 1
+        name: "MacBook Pro"
+        category: "Electronics"
+        price: 2499.99
+        stock: 15
+        rating: 4.8
+      - id: 2
+        name: "iPhone 15"
+        category: "Electronics"
+        price: 999.99
+        stock: 50
+        rating: 4.7
+      - id: 3
+        name: "AirPods Pro"
+        category: "Accessories"
+        price: 249.99
+        stock: 100
+        rating: 4.6
+    users:
+      - id: 1
+        name: "Alice Johnson"
+        email: "alice@example.com"
+        role: "premium"
+      - id: 2
+        name: "Bob Smith"
+        email: "bob@example.com"
+        role: "standard"
+    orders:
+      - id: 1001
+        userId: 1
+        items: [1, 3]
+        total: 2749.98
+        status: "delivered"
+      - id: 1002
+        userId: 2
+        items: [2]
+        total: 999.99
+        status: "processing"
+
+routes:
+  # Health check endpoint
+  - path: /health
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "status": "healthy",
+          "version": "{{ .context.apiVersion }}",
+          "timestamp": "{{ now }}",
+          "uptime": "{{ uuid }}"
+        }
+
+  # Get all products with filtering
+  - path: /api/{{ .context.apiVersion }}/products
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        X-Total-Count: "{{ len .context.products }}"
+        X-API-Version: "{{ .context.apiVersion }}"
+      body: |
+        {
+          "products": [
+            {{ range $i, $p := .context.products }}
+            {
+              "id": {{ $p.id }},
+              "name": "{{ $p.name }}",
+              "category": "{{ $p.category }}",
+              "price": {{ $p.price }},
+              "stock": {{ $p.stock }},
+              "rating": {{ $p.rating }},
+              "available": {{ if gt $p.stock 0 }}true{{ else }}false{{ end }}
+            }{{ if not (eq $i (sub (len $.context.products) 1)) }},{{ end }}
+            {{ end }}
+          ],
+          "total": {{ len .context.products }},
+          "page": 1,
+          "pageSize": 10
+        }
+
+  # Get single product by ID
+  - path: /api/{{ .context.apiVersion }}/products/(?P<id>\d+)
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Cache-Control: "max-age=3600"
+      body: |
+        {{ $id := .input.id }}
+        {{ $found := false }}
+        {{ range .context.products }}
+          {{ if eq (printf "%v" .id) $id }}
+            {{ $found = true }}
+        {
+          "id": {{ .id }},
+          "name": "{{ .name }}",
+          "category": "{{ .category }}",
+          "price": {{ .price }},
+          "stock": {{ .stock }},
+          "rating": {{ .rating }},
+          "available": {{ if gt .stock 0 }}true{{ else }}false{{ end }},
+          "description": "High-quality {{ .category }} product",
+          "images": [
+            "https://api.usekuro.com/images/{{ .id }}/main.jpg",
+            "https://api.usekuro.com/images/{{ .id }}/thumb.jpg"
+          ]
+        }
+          {{ end }}
+        {{ end }}
+        {{ if not $found }}
+        {
+          "error": "Product not found",
+          "id": "{{ $id }}"
+        }
+        {{ end }}
+
+  # Create new product
+  - path: /api/{{ .context.apiVersion }}/products
+    method: POST
+    response:
+      status: 201
+      headers:
+        Content-Type: application/json
+        Location: /api/{{ .context.apiVersion }}/products/4
+      body: |
+        {
+          "id": 4,
+          "name": "{{ .input.name }}",
+          "category": "{{ .input.category }}",
+          "price": {{ .input.price }},
+          "stock": {{ .input.stock }},
+          "rating": 0,
+          "created_at": "{{ now }}",
+          "message": "Product created successfully"
+        }
+
+  # Update product
+  - path: /api/{{ .context.apiVersion }}/products/(?P<id>\d+)
+    method: PUT
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "id": {{ .input.id }},
+          "name": "{{ .input.name }}",
+          "category": "{{ .input.category }}",
+          "price": {{ .input.price }},
+          "stock": {{ .input.stock }},
+          "updated_at": "{{ now }}",
+          "message": "Product updated successfully"
+        }
+
+  # Delete product
+  - path: /api/{{ .context.apiVersion }}/products/(?P<id>\d+)
+    method: DELETE
+    response:
+      status: 204
+      headers:
+        X-Deleted-At: "{{ now }}"
+
+  # Get all users
+  - path: /api/{{ .context.apiVersion }}/users
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        X-Total-Users: "{{ len .context.users }}"
+      body: |
+        {
+          "users": [
+            {{ range $i, $u := .context.users }}
+            {
+              "id": {{ $u.id }},
+              "name": "{{ $u.name }}",
+              "email": "{{ $u.email }}",
+              "role": "{{ $u.role }}",
+              "avatar": "https://api.usekuro.com/avatars/{{ $u.id }}.png"
+            }{{ if not (eq $i (sub (len $.context.users) 1)) }},{{ end }}
+            {{ end }}
+          ],
+          "total": {{ len .context.users }}
+        }
+
+  # Get user orders
+  - path: /api/{{ .context.apiVersion }}/users/(?P<userId>\d+)/orders
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: |
+        {{ $userId := .input.userId }}
+        {
+          "userId": {{ $userId }},
+          "orders": [
+            {{ range $i, $o := .context.orders }}
+              {{ if eq (printf "%v" $o.userId) $userId }}
+            {
+              "id": {{ $o.id }},
+              "items": {{ toJson $o.items }},
+              "total": {{ $o.total }},
+              "status": "{{ $o.status }}",
+              "trackingNumber": "TRK-{{ $o.id }}-{{ uuid }}"
+            }{{ if not (eq $i (sub (len $.context.orders) 1)) }},{{ end }}
+              {{ end }}
+            {{ end }}
+          ]
+        }
+
+  # Create new order
+  - path: /api/{{ .context.apiVersion }}/orders
+    method: POST
+    response:
+      status: 201
+      headers:
+        Content-Type: application/json
+        Location: /api/{{ .context.apiVersion }}/orders/1003
+      body: |
+        {
+          "id": 1003,
+          "userId": {{ .input.userId }},
+          "items": {{ toJson .input.items }},
+          "total": {{ .input.total }},
+          "status": "pending",
+          "created_at": "{{ now }}",
+          "estimated_delivery": "{{ now }}",
+          "payment_url": "https://payment.usekuro.com/checkout/{{ uuid }}"
+        }
+
+  # Search products
+  - path: /api/{{ .context.apiVersion }}/products/search
+    method: POST
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: |
+        {{ $query := .input.query }}
+        {
+          "query": "{{ $query }}",
+          "results": [
+            {{ range .context.products }}
+              {{ if or (contains (lower .name) (lower $query)) (contains (lower .category) (lower $query)) }}
+            {
+              "id": {{ .id }},
+              "name": "{{ .name }}",
+              "category": "{{ .category }}",
+              "price": {{ .price }},
+              "rating": {{ .rating }}
+            },
+              {{ end }}
+            {{ end }}
+          ],
+          "timestamp": "{{ now }}"
+        }
+
+  # Get product recommendations
+  - path: /api/{{ .context.apiVersion }}/products/(?P<id>\d+)/recommendations
+    method: GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        X-Recommendation-Engine: "UseKuro-AI-v1"
+      body: |
+        {{ $id := .input.id }}
+        {
+          "productId": {{ $id }},
+          "recommendations": [
+            {{ range $i, $p := .context.products }}
+              {{ if ne (printf "%v" $p.id) $id }}
+                {{ if lt $i 2 }}
+            {
+              "id": {{ $p.id }},
+              "name": "{{ $p.name }}",
+              "price": {{ $p.price }},
+              "rating": {{ $p.rating }},
+              "reason": "Frequently bought together"
+            }{{ if eq $i 0 }},{{ end }}
+                {{ end }}
+              {{ end }}
+            {{ end }}
+          ],
+          "generated_at": "{{ now }}"
+        }
+
+  # Authentication endpoint
+  - path: /api/{{ .context.apiVersion }}/auth/login
+    method: POST
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Set-Cookie: "session={{ uuid }}; HttpOnly; Secure; SameSite=Strict"
+      body: |
+        {
+          "token": "{{ uuid }}",
+          "user": {
+            "email": "{{ .input.email }}",
+            "name": "Test User",
+            "role": "standard"
+          },
+          "expires_at": "{{ now }}",
+          "refresh_token": "{{ uuid }}"
+        }
+
+  # Logout endpoint
+  - path: /api/{{ .context.apiVersion }}/auth/logout
+    method: POST
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+        Set-Cookie: "session=; Max-Age=0"
+      body: |
+        {
+          "message": "Logged out successfully",
+          "timestamp": "{{ now }}"
+        }
+
+  # Error handling - 404
+  - path: /api/{{ .context.apiVersion }}/.*
+    method: GET
+    response:
+      status: 404
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "error": "Not Found",
+          "message": "The requested resource was not found",
+          "path": "{{ .input.path }}",
+          "timestamp": "{{ now }}"
+        }

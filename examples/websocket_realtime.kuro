@@ -1,0 +1,378 @@
+protocol: ws
+port: 8080
+meta:
+  name: "WebSocket Realtime Dashboard"
+  description: "Real-time dashboard with metrics, notifications and collaborative chat"
+
+session:
+  timeout: 60s
+
+context:
+  variables:
+    dashboardName: "UseKuro Analytics"
+    version: "2.1.0"
+    metrics:
+      - name: "cpu_usage"
+        value: 45.2
+        unit: "%"
+        status: "normal"
+      - name: "memory_usage"
+        value: 78.5
+        unit: "%"
+        status: "warning"
+      - name: "disk_usage"
+        value: 23.1
+        unit: "%"
+        status: "normal"
+      - name: "network_io"
+        value: 1024.5
+        unit: "MB/s"
+        status: "high"
+    users:
+      - id: 1
+        name: "Alice"
+        role: "admin"
+        status: "online"
+      - id: 2
+        name: "Bob"
+        role: "developer"
+        status: "away"
+      - id: 3
+        name: "Charlie"
+        role: "analyst"
+        status: "online"
+    notifications:
+      - id: 1
+        type: "warning"
+        message: "High memory usage detected"
+        timestamp: "2024-01-15T10:30:00Z"
+      - id: 2
+        type: "info"
+        message: "New user registered"
+        timestamp: "2024-01-15T10:25:00Z"
+      - id: 3
+        type: "error"
+        message: "Database connection failed"
+        timestamp: "2024-01-15T10:20:00Z"
+
+onMessage:
+  match: ".*"
+  conditions:
+    # Suscripción a eventos en tiempo real
+    - if: '{{ contains .input "\"action\":\"subscribe\"" }}'
+      respond: |
+        {
+          "type": "subscription_confirmed",
+          "events": [
+            "metrics_update",
+            "user_activity",
+            "notifications",
+            "chat_message",
+            "system_alert"
+          ],
+          "subscription_id": "{{ uuid }}",
+          "dashboard": "{{ .context.dashboardName }}",
+          "version": "{{ .context.version }}",
+          "timestamp": "{{ now }}"
+        }
+
+    # Obtener métricas actuales
+    - if: '{{ contains .input "\"action\":\"get_metrics\"" }}'
+      respond: |
+        {
+          "type": "metrics_data",
+          "dashboard": "{{ .context.dashboardName }}",
+          "metrics": [
+            {{ range $i, $m := .context.metrics }}
+            {
+              "name": "{{ $m.name }}",
+              "value": {{ $m.value }},
+              "unit": "{{ $m.unit }}",
+              "status": "{{ $m.status }}",
+              "timestamp": "{{ now }}",
+              "trend": "{{ if eq $m.status "high" }}up{{ else if eq $m.status "warning" }}stable{{ else }}down{{ end }}"
+            }{{ if not (eq $i (sub (len $.context.metrics) 1)) }},{{ end }}
+            {{ end }}
+          ],
+          "generated_at": "{{ now }}"
+        }
+
+    # Real-time metrics simulation
+    - if: '{{ contains .input "\"action\":\"start_realtime\"" }}'
+      respond: |
+        {
+          "type": "realtime_started",
+          "message": "Starting real-time metrics transmission",
+          "interval": "5s",
+          "metrics": [
+            {
+              "name": "cpu_usage",
+              "value": {{ add 45.2 (mod (unix now) 20) }},
+              "unit": "%",
+              "status": "normal",
+              "change": "+{{ mod (unix now) 5 }}.{{ mod (unix now) 9 }}%"
+            },
+            {
+              "name": "memory_usage",
+              "value": {{ add 78.5 (mod (unix now) 15) }},
+              "unit": "%",
+              "status": "{{ if gt (mod (unix now) 10) 7 }}warning{{ else }}normal{{ end }}",
+              "change": "-{{ mod (unix now) 3 }}.{{ mod (unix now) 7 }}%"
+            },
+            {
+              "name": "active_connections",
+              "value": {{ add 150 (mod (unix now) 50) }},
+              "unit": "conn",
+              "status": "normal",
+              "change": "+{{ mod (unix now) 10 }}"
+            }
+          ],
+          "timestamp": "{{ now }}"
+        }
+
+    # Collaborative chat
+    - if: '{{ contains .input "\"action\":\"send_message\"" }}'
+      respond: |
+        {
+          "type": "chat_message",
+          "message_id": "{{ uuid }}",
+          "user": "{{ if contains .input "\"user\":" }}User_{{ uuid | slice 0 8 }}{{ else }}Anonymous{{ end }}",
+          "content": "{{ if contains .input "\"content\":" }}Message received and broadcasted{{ else }}Hello from UseKuro!{{ end }}",
+          "timestamp": "{{ now }}",
+          "channel": "general",
+          "mentions": [],
+          "reactions": {
+            "👍": 0,
+            "❤️": 0,
+            "🚀": 0
+          }
+        }
+
+    # Get connected users
+    - if: '{{ contains .input "\"action\":\"get_users\"" }}'
+      respond: |
+        {
+          "type": "users_list",
+          "users": [
+            {{ range $i, $u := .context.users }}
+            {
+              "id": {{ $u.id }},
+              "name": "{{ $u.name }}",
+              "role": "{{ $u.role }}",
+              "status": "{{ $u.status }}",
+              "avatar": "https://api.usekuro.com/avatars/{{ $u.id }}.png",
+              "last_seen": "{{ now }}",
+              "permissions": {{ if eq $u.role "admin" }}["read", "write", "admin"]{{ else }}["read", "write"]{{ end }}
+            }{{ if not (eq $i (sub (len $.context.users) 1)) }},{{ end }}
+            {{ end }}
+          ],
+          "total_online": {{ len .context.users }},
+          "timestamp": "{{ now }}"
+        }
+
+    # Get notifications
+    - if: '{{ contains .input "\"action\":\"get_notifications\"" }}'
+      respond: |
+        {
+          "type": "notifications",
+          "notifications": [
+            {{ range $i, $n := .context.notifications }}
+            {
+              "id": {{ $n.id }},
+              "type": "{{ $n.type }}",
+              "message": "{{ $n.message }}",
+              "timestamp": "{{ $n.timestamp }}",
+              "read": false,
+              "priority": "{{ if eq $n.type "error" }}high{{ else if eq $n.type "warning" }}medium{{ else }}low{{ end }}",
+              "icon": "{{ if eq $n.type "error" }}🚨{{ else if eq $n.type "warning" }}⚠️{{ else }}ℹ️{{ end }}"
+            }{{ if not (eq $i (sub (len $.context.notifications) 1)) }},{{ end }}
+            {{ end }}
+          ],
+          "unread_count": {{ len .context.notifications }},
+          "timestamp": "{{ now }}"
+        }
+
+    # Create new alert
+    - if: '{{ contains .input "\"action\":\"create_alert\"" }}'
+      respond: |
+        {
+          "type": "alert_created",
+          "alert": {
+            "id": "{{ uuid }}",
+            "title": "Custom Alert",
+            "message": "{{ if contains .input "\"message\":" }}Alert created successfully{{ else }}New system alert{{ end }}",
+            "severity": "{{ if contains .input "\"severity\":" }}medium{{ else }}low{{ end }}",
+            "created_by": "User_{{ uuid | slice 0 8 }}",
+            "created_at": "{{ now }}",
+            "status": "active",
+            "tags": ["custom", "user-generated"]
+          },
+          "broadcast": true,
+          "timestamp": "{{ now }}"
+        }
+
+    # System status dashboard
+    - if: '{{ contains .input "\"action\":\"system_status\"" }}'
+      respond: |
+        {
+          "type": "system_status",
+          "status": "operational",
+          "services": [
+            {
+              "name": "API Gateway",
+              "status": "healthy",
+              "uptime": "99.9%",
+              "response_time": "{{ add 50 (mod (unix now) 100) }}ms"
+            },
+            {
+              "name": "Database",
+              "status": "{{ if gt (mod (unix now) 10) 8 }}degraded{{ else }}healthy{{ end }}",
+              "uptime": "99.5%",
+              "response_time": "{{ add 25 (mod (unix now) 75) }}ms"
+            },
+            {
+              "name": "Cache Layer",
+              "status": "healthy",
+              "uptime": "100%",
+              "response_time": "{{ add 5 (mod (unix now) 15) }}ms"
+            },
+            {
+              "name": "Message Queue",
+              "status": "healthy",
+              "uptime": "99.8%",
+              "response_time": "{{ add 10 (mod (unix now) 30) }}ms"
+            }
+          ],
+          "overall_health": "{{ if gt (mod (unix now) 10) 8 }}95%{{ else }}98%{{ end }}",
+          "timestamp": "{{ now }}"
+        }
+
+    # Trends analysis
+    - if: '{{ contains .input "\"action\":\"get_trends\"" }}'
+      respond: |
+        {
+          "type": "trends_analysis",
+          "period": "24h",
+          "trends": [
+            {
+              "metric": "user_activity",
+              "current": {{ add 1250 (mod (unix now) 200) }},
+              "previous": {{ add 1100 (mod (unix now) 150) }},
+              "change_percent": "+{{ add 8 (mod (unix now) 15) }}%",
+              "trend": "increasing"
+            },
+            {
+              "metric": "api_requests",
+              "current": {{ add 45000 (mod (unix now) 5000) }},
+              "previous": {{ add 42000 (mod (unix now) 3000) }},
+              "change_percent": "+{{ add 5 (mod (unix now) 10) }}%",
+              "trend": "stable"
+            },
+            {
+              "metric": "error_rate",
+              "current": {{ div (mod (unix now) 100) 100.0 }},
+              "previous": {{ div (mod (unix now) 80) 100.0 }},
+              "change_percent": "-{{ add 2 (mod (unix now) 8) }}%",
+              "trend": "decreasing"
+            }
+          ],
+          "insights": [
+            "User activity is trending upward",
+            "API performance is stable",
+            "Error rates are within acceptable limits"
+          ],
+          "generated_at": "{{ now }}"
+        }
+
+    # Alert configuration
+    - if: '{{ contains .input "\"action\":\"configure_alerts\"" }}'
+      respond: |
+        {
+          "type": "alert_configuration",
+          "rules": [
+            {
+              "id": "{{ uuid }}",
+              "name": "High CPU Usage",
+              "condition": "cpu_usage > 80%",
+              "severity": "warning",
+              "enabled": true,
+              "cooldown": "5m"
+            },
+            {
+              "id": "{{ uuid }}",
+              "name": "Memory Critical",
+              "condition": "memory_usage > 90%",
+              "severity": "critical",
+              "enabled": true,
+              "cooldown": "1m"
+            },
+            {
+              "id": "{{ uuid }}",
+              "name": "Service Down",
+              "condition": "service_status == 'down'",
+              "severity": "critical",
+              "enabled": true,
+              "cooldown": "30s"
+            }
+          ],
+          "notification_channels": [
+            "websocket",
+            "email",
+            "slack"
+          ],
+          "updated_at": "{{ now }}"
+        }
+
+    # Export data
+    - if: '{{ contains .input "\"action\":\"export_data\"" }}'
+      respond: |
+        {
+          "type": "data_export",
+          "export_id": "{{ uuid }}",
+          "format": "json",
+          "includes": [
+            "metrics",
+            "notifications",
+            "user_activity",
+            "system_logs"
+          ],
+          "size_estimate": "{{ add 2 (mod (unix now) 10) }}.{{ mod (unix now) 9 }}MB",
+          "download_url": "https://api.usekuro.com/exports/{{ uuid }}.json",
+          "expires_at": "{{ now }}",
+          "status": "ready",
+          "created_at": "{{ now }}"
+        }
+
+    # Ping/Pong para mantener conexión
+    - if: '{{ contains .input "ping" }}'
+      respond: |
+        {
+          "type": "pong",
+          "server_time": "{{ now }}",
+          "latency": "{{ add 10 (mod (unix now) 50) }}ms",
+          "connection_id": "{{ uuid }}",
+          "uptime": "{{ add 1 (mod (unix now) 24) }}h {{ mod (unix now) 60 }}m"
+        }
+
+  # Respuesta por defecto para mensajes no reconocidos
+  else: |
+    {
+      "type": "error",
+      "message": "Unrecognized action",
+      "available_actions": [
+        "subscribe",
+        "get_metrics",
+        "start_realtime",
+        "send_message",
+        "get_users",
+        "get_notifications",
+        "create_alert",
+        "system_status",
+        "get_trends",
+        "configure_alerts",
+        "export_data"
+      ],
+      "received": {{ toJson .input }},
+      "timestamp": "{{ now }}",
+      "help": "Send a JSON with 'action' to interact with the dashboard"
+    }
